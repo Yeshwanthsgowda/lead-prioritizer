@@ -12,15 +12,15 @@ import Link from "next/link";
 const POLL_INTERVAL_MS = 4000;
 
 const TAG_STYLES = {
-  Hot: "bg-red-100 text-red-700 border border-red-200",
-  Warm: "bg-amber-100 text-amber-700 border border-amber-200",
-  Cold: "bg-blue-100 text-blue-700 border border-blue-200",
+  Hot: "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]",
+  Warm: "bg-[#FEF3E2] text-[#B45309] border border-[#FDE3B7]",
+  Cold: "bg-[#F0ECE7] text-[#5C554E] border border-[#E2DBD3]",
 };
 
 const TAG_DOT = {
-  Hot: "bg-red-500",
-  Warm: "bg-amber-500",
-  Cold: "bg-blue-400",
+  Hot: "bg-[#CE4D47]",
+  Warm: "bg-[#D97706]",
+  Cold: "bg-[#8C827A]",
 };
 
 const SUB_SCORE_LIMITS = [
@@ -74,6 +74,13 @@ function LeadDetailContent() {
 
   // Optimistic pending user message while waiting for AI coach
   const [pendingUserMessage, setPendingUserMessage] = useState(null);
+
+  // Post-call update state (Slice 6)
+  const [postCallNotes, setPostCallNotes] = useState("");
+  const [updatingLead, setUpdatingLead] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [updateSuccessResult, setUpdateSuccessResult] = useState(null);
+  const [expandedCallLogs, setExpandedCallLogs] = useState({}); // { [index]: boolean }
 
   // Ref tracking if a chat message is actively being sent
   const chatSendingRef = useRef(false);
@@ -341,6 +348,67 @@ function LeadDetailContent() {
     }
   }
 
+  // Handle post-call update and re-scoring (Slice 6)
+  async function handleUpdateLead() {
+    if (!postCallNotes || postCallNotes.trim().length < 20 || updatingLead) return;
+
+    setUpdatingLead(true);
+    setUpdateError(null);
+
+    const notesToSend = postCallNotes.trim();
+
+    try {
+      const res = await fetch(`/api/leads/${id}/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user": currentUser,
+        },
+        body: JSON.stringify({ notes: notesToSend }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload.error || `Server error (${res.status})`);
+      }
+
+      // Update lead state with the updated lead returned by the server
+      setLead(payload);
+
+      // Derive latest call log entry for result card display
+      const latestLog = Array.isArray(payload.call_log) && payload.call_log.length > 0
+        ? payload.call_log[payload.call_log.length - 1]
+        : null;
+
+      if (latestLog) {
+        setUpdateSuccessResult({
+          score_before: latestLog.score_before,
+          score_after: latestLog.score_after,
+          tag_before: latestLog.tag_before,
+          tag_after: latestLog.tag_after,
+          reason: latestLog.reason,
+          questions_answered: latestLog.questions_answered || [],
+          questions_still_open: latestLog.questions_still_open || [],
+        });
+      }
+
+      // Clear the textarea only on success
+      setPostCallNotes("");
+    } catch (err) {
+      setUpdateError(`Failed to update lead: ${err.message}`);
+    } finally {
+      setUpdatingLead(false);
+    }
+  }
+
+  function toggleCallLogExpansion(index) {
+    setExpandedCallLogs((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  }
+
   function handleCopyChatMessage(text, index) {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -364,9 +432,9 @@ function LeadDetailContent() {
 
   if (!hydrated || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <svg className="w-5 h-5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF5EF]">
+        <div className="flex items-center gap-2 text-sm text-[#8C827A]">
+          <svg className="w-5 h-5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
@@ -378,18 +446,20 @@ function LeadDetailContent() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            🔍
+      <div className="min-h-screen bg-[#FAF5EF] flex flex-col items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white border border-[#EDE5DC] rounded-2xl p-8 text-center shadow-xs">
+          <div className="w-12 h-12 bg-[#FAF5EF] border border-[#EDE5DC] rounded-full flex items-center justify-center mx-auto mb-4 text-[#8C827A]">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Lead not found</h2>
-          <p className="text-sm text-gray-500 mb-6">
+          <h2 className="text-lg font-semibold text-[#1F1A17] mb-1">Lead not found</h2>
+          <p className="text-sm text-[#6B635B] mb-6">
             The lead you are looking for does not exist or may have been deleted.
           </p>
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#CE4D47] text-white rounded-xl text-sm font-medium hover:bg-[#B83E38] transition-colors"
           >
             ← Back to dashboard
           </Link>
@@ -400,20 +470,20 @@ function LeadDetailContent() {
 
   if (fetchError && !lead) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-red-200 rounded-2xl p-8 text-center shadow-sm">
-          <h2 className="text-lg font-semibold text-red-700 mb-2">Error loading lead</h2>
-          <p className="text-sm text-gray-600 mb-6">{fetchError}</p>
+      <div className="min-h-screen bg-[#FAF5EF] flex flex-col items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white border border-[#F7C6C2] rounded-2xl p-8 text-center shadow-xs">
+          <h2 className="text-lg font-semibold text-[#C53929] mb-2">Error loading lead</h2>
+          <p className="text-sm text-[#6B635B] mb-6">{fetchError}</p>
           <div className="flex gap-3 justify-center">
             <Link
               href="/"
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-[#EDE5DC] text-[#1F1A17] rounded-xl text-sm font-medium hover:bg-[#FAF5EF] transition-colors"
             >
               Back
             </Link>
             <button
               onClick={() => fetchLead()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 bg-[#CE4D47] text-white rounded-xl text-sm font-medium hover:bg-[#B83E38] transition-colors"
             >
               Retry
             </button>
@@ -448,28 +518,28 @@ function LeadDetailContent() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16">
+    <div className="min-h-screen bg-[#FAF5EF] pb-16">
       {/* Top navigation bar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-[#EDE5DC] sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#CE4D47] hover:text-[#B83E38] transition-colors"
           >
             ← Back to dashboard
           </Link>
-          <span className="text-xs text-gray-400">Viewing as {currentUser}</span>
+          <span className="text-xs text-[#8C827A]">Viewing as {currentUser}</span>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-5">
         {/* Error notification if claim/release has conflict */}
         {actionError && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-center justify-between">
+          <div className="bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl px-4 py-3 text-sm text-[#B45309] flex items-center justify-between">
             <span>{actionError}</span>
             <button
               onClick={() => setActionError(null)}
-              className="text-amber-500 hover:text-amber-700 font-bold ml-4"
+              className="text-[#B45309] hover:text-[#78350F] font-bold ml-4"
             >
               ✕
             </button>
@@ -477,28 +547,28 @@ function LeadDetailContent() {
         )}
 
         {/* 1. Claim Banner */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3">
             {isUnclaimed && (
               <>
-                <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-9 h-9 rounded-full bg-[#FAF5EF] border border-[#EDE5DC] text-[#8C827A] flex items-center justify-center font-bold text-sm">
                   ○
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">This lead is open</h3>
-                  <p className="text-xs text-gray-500">Not currently assigned to anyone</p>
+                  <h3 className="text-sm font-semibold text-[#1F1A17]">This lead is open</h3>
+                  <p className="text-xs text-[#8C827A]">Not currently assigned to anyone</p>
                 </div>
               </>
             )}
 
             {isClaimedByMe && (
               <>
-                <div className="w-9 h-9 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold text-sm">
+                <div className="w-9 h-9 rounded-full bg-[#EBF7EE] border border-[#C8E6C9] text-[#2E7D32] flex items-center justify-center font-bold text-sm">
                   ✓
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">You're working this lead</h3>
-                  <p className="text-xs text-gray-500">
+                  <h3 className="text-sm font-semibold text-[#1F1A17]">You're working this lead</h3>
+                  <p className="text-xs text-[#6B635B]">
                     Claimed {formattedClaimedAt ? `at ${formattedClaimedAt}` : "by you"}
                   </p>
                 </div>
@@ -507,14 +577,16 @@ function LeadDetailContent() {
 
             {isClaimedByOther && (
               <>
-                <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-sm">
-                  🔒
+                <div className="w-9 h-9 rounded-full bg-[#FEF3E2] border border-[#FDE3B7] text-[#B45309] flex items-center justify-center text-sm">
+                  <svg className="w-4 h-4 text-[#B45309]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">
+                  <h3 className="text-sm font-semibold text-[#1F1A17]">
                     Claimed by {lead.claimed_by}
                   </h3>
-                  <p className="text-xs text-gray-500">Currently in progress by another salesperson</p>
+                  <p className="text-xs text-[#8C827A]">Currently in progress by another salesperson</p>
                 </div>
               </>
             )}
@@ -525,7 +597,7 @@ function LeadDetailContent() {
               <button
                 onClick={handleClaim}
                 disabled={actionInProgress}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[#CE4D47] hover:bg-[#B83E38] active:bg-[#A33530] text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
               >
                 {actionInProgress ? "Claiming…" : "Claim lead"}
               </button>
@@ -535,7 +607,7 @@ function LeadDetailContent() {
               <button
                 onClick={handleRelease}
                 disabled={actionInProgress}
-                className="px-4 py-2 border border-gray-300 hover:border-red-300 hover:text-red-600 text-gray-700 text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+                className="px-4 py-2 border border-[#EDE5DC] hover:border-[#F7C6C2] hover:text-[#CE4D47] text-[#1F1A17] text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
               >
                 {actionInProgress ? "Releasing…" : "Release lead"}
               </button>
@@ -544,45 +616,45 @@ function LeadDetailContent() {
         </div>
 
         {/* 2. Header Card */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{lead.name}</h1>
+            <h1 className="text-2xl font-bold text-[#1F1A17] tracking-tight">{lead.name}</h1>
             {analysis.intent && (
-              <p className="text-sm text-gray-600 italic">
+              <p className="text-sm text-[#6B635B] italic">
                 "{analysis.intent}"
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-gray-500">
+            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-[#6B635B]">
               {lead.property_requirement && (
-                <span className="flex items-center gap-1 font-medium text-gray-700">
-                  🏠 {lead.property_requirement}
+                <span className="flex items-center gap-1 font-medium text-[#1F1A17]">
+                  <span className="text-[#8C827A]">Req:</span> {lead.property_requirement}
                 </span>
               )}
               {lead.location && (
                 <span className="flex items-center gap-1">
-                  📍 {lead.location}
+                  <span className="text-[#8C827A]">Loc:</span> {lead.location}
                 </span>
               )}
               {lead.phone && (
                 <a
                   href={`tel:${lead.phone}`}
-                  className="flex items-center gap-1 text-indigo-600 hover:underline font-mono"
+                  className="flex items-center gap-1 text-[#CE4D47] hover:underline font-mono"
                 >
-                  📞 {lead.phone}
+                  <span className="text-[#8C827A] font-sans">Tel:</span> {lead.phone}
                 </a>
               )}
               {lead.email && (
                 <a
                   href={`mailto:${lead.email}`}
-                  className="flex items-center gap-1 text-indigo-600 hover:underline"
+                  className="flex items-center gap-1 text-[#CE4D47] hover:underline"
                 >
-                  ✉️ {lead.email}
+                  <span className="text-[#8C827A]">Email:</span> {lead.email}
                 </a>
               )}
             </div>
           </div>
 
-          <div className="shrink-0 flex items-center md:flex-col md:items-end gap-3 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
+          <div className="shrink-0 flex items-center md:flex-col md:items-end gap-3 border-t md:border-t-0 pt-4 md:pt-0 border-[#EDE5DC]">
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${TAG_STYLES[tag] || TAG_STYLES.Cold}`}
             >
@@ -590,19 +662,19 @@ function LeadDetailContent() {
               {tag} Lead
             </span>
             <div className="text-right">
-              <span className="text-3xl font-extrabold text-gray-900">{score}</span>
-              <span className="text-xs text-gray-400 font-medium">/100</span>
+              <span className="text-3xl font-extrabold text-[#1F1A17]">{score}</span>
+              <span className="text-xs text-[#8C827A] font-medium">/100</span>
             </div>
           </div>
         </div>
 
         {/* 3. Why this priority Card */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-5">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs space-y-5">
           <div>
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase mb-1">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase mb-1">
               Why this priority
             </h2>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-[#1F1A17]">
               {analysis.score_reason || "Score calculated based on lead qualification criteria."}
             </p>
           </div>
@@ -614,15 +686,15 @@ function LeadDetailContent() {
               const pct = Math.min(100, Math.round((val / max) * 100));
 
               return (
-                <div key={key} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                <div key={key} className="bg-[#FAF5EF] rounded-xl p-3 border border-[#EDE5DC]">
                   <div className="flex justify-between text-xs font-medium mb-1.5">
-                    <span className="text-gray-600">{label}</span>
-                    <span className="text-gray-900 font-semibold">{val}/{max}</span>
+                    <span className="text-[#6B635B]">{label}</span>
+                    <span className="text-[#1F1A17] font-semibold">{val}/{max}</span>
                   </div>
-                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#EDE5DC] h-2 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        pct >= 70 ? "bg-indigo-600" : pct >= 40 ? "bg-indigo-400" : "bg-gray-400"
+                        pct >= 70 ? "bg-[#CE4D47]" : pct >= 40 ? "bg-[#D97706]" : "bg-[#8C827A]"
                       }`}
                       style={{ width: `${pct}%` }}
                     />
@@ -632,7 +704,7 @@ function LeadDetailContent() {
             })}
           </div>
 
-          <p className="text-[11px] text-gray-400 tracking-wide">
+          <p className="text-[11px] text-[#8C827A] tracking-wide">
             HOT &ge; 70, WARM 40-69, COLD &lt; 40
           </p>
         </div>
@@ -642,10 +714,10 @@ function LeadDetailContent() {
           <div
             className={`rounded-2xl p-5 border shadow-xs ${
               tag === "Hot"
-                ? "bg-red-50 border-red-200 text-red-900"
+                ? "bg-[#FDE8E7] border-[#F7C6C2] text-[#C53929]"
                 : tag === "Warm"
-                ? "bg-amber-50 border-amber-200 text-amber-900"
-                : "bg-blue-50 border-blue-200 text-blue-900"
+                ? "bg-[#FEF3E2] border-[#FDE3B7] text-[#B45309]"
+                : "bg-[#F0ECE7] border-[#E2DBD3] text-[#5C554E]"
             }`}
           >
             <div className="text-[11px] font-bold uppercase tracking-wider opacity-75 mb-1">
@@ -659,16 +731,16 @@ function LeadDetailContent() {
 
         {/* 5. Call Brief Section */}
         {lead.call_brief ? (
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EDE5DC] pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-gray-900">Call Brief</h2>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                  <h2 className="text-base font-bold text-[#1F1A17]">Call Brief</h2>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#FBEBE8] text-[#CE4D47] border border-[#F7C6C2]">
                     Ready
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-[#6B635B] mt-0.5">
                   Glance at this script while the phone rings
                 </p>
               </div>
@@ -676,19 +748,42 @@ function LeadDetailContent() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCallModeOpen(true)}
-                  className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+                  className="px-4 py-2 bg-[#1F1A17] hover:bg-black text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>⚡</span> Start call mode
+                  Start call mode
                 </button>
               </div>
             </div>
 
+            {/* Stale brief banner if a call occurred since brief generation */}
+            {lead.call_brief.stale && (
+              <div className="bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-[#B45309]">
+                <div>
+                  <div className="font-semibold text-[#B45309]">
+                    You've had a call since this brief was written. Regenerate it for fresh questions.
+                  </div>
+                  {lead.call_brief.stale_reason && (
+                    <div className="text-[11px] text-[#D97706] mt-0.5">
+                      {lead.call_brief.stale_reason}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleGenerateBrief}
+                  disabled={generatingBrief}
+                  className="px-3 py-1.5 bg-[#B45309] hover:bg-[#92400E] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {generatingBrief ? "Regenerating…" : "Regenerate brief"}
+                </button>
+              </div>
+            )}
+
             {briefError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 flex items-center justify-between">
+              <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl px-4 py-3 text-xs text-[#C53929] flex items-center justify-between">
                 <span>{briefError}</span>
                 <button
                   onClick={() => setBriefError(null)}
-                  className="font-bold text-red-500 hover:text-red-700 ml-4"
+                  className="font-bold text-[#C53929] hover:text-[#9A2617] ml-4"
                 >
                   ✕
                 </button>
@@ -697,26 +792,26 @@ function LeadDetailContent() {
 
             {/* Block 1: Call goal */}
             <div>
-              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-1">
                 Call Goal
               </div>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-[#1F1A17]">
                 {lead.call_brief.call_goal}
               </p>
             </div>
 
             {/* Block 2: Opening line */}
             <div>
-              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-1.5">
                 Opening line (first 20 seconds)
               </div>
-              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-start justify-between gap-4">
-                <p className="text-base sm:text-lg font-medium text-indigo-950 leading-relaxed">
+              <div className="p-4 bg-[#FBEBE8]/70 border border-[#F7C6C2] rounded-xl flex items-start justify-between gap-4">
+                <p className="text-base sm:text-lg font-medium text-[#1F1A17] leading-relaxed">
                   "{lead.call_brief.opening_line}"
                 </p>
                 <button
                   onClick={() => handleCopyOpening(lead.call_brief.opening_line)}
-                  className="shrink-0 px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg transition-colors"
+                  className="shrink-0 px-3 py-1.5 bg-white border border-[#EDE5DC] hover:bg-[#FAF5EF] text-[#CE4D47] text-xs font-semibold rounded-lg transition-colors"
                 >
                   {copiedOpening ? "✓ Copied" : "Copy"}
                 </button>
@@ -726,13 +821,13 @@ function LeadDetailContent() {
             {/* Block 3: What I already know (recap) */}
             {Array.isArray(lead.call_brief.recap) && lead.call_brief.recap.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-2">
                   What I already know (Do not re-ask)
                 </div>
                 <ul className="space-y-1.5">
                   {lead.call_brief.recap.map((bullet, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="text-indigo-500 font-bold">•</span>
+                    <li key={idx} className="flex items-start gap-2 text-sm text-[#1F1A17]">
+                      <span className="text-[#CE4D47] font-bold">•</span>
                       <span>{bullet}</span>
                     </li>
                   ))}
@@ -743,21 +838,21 @@ function LeadDetailContent() {
             {/* Block 4: Questions to ask */}
             {Array.isArray(lead.call_brief.discovery_questions) && (
               <div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-2">
                   Questions to ask
                 </div>
                 <div className="space-y-3">
                   {lead.call_brief.discovery_questions.map((q, idx) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-100 rounded-xl p-3.5">
+                    <div key={idx} className="bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl p-3.5">
                       <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="w-5 h-5 rounded-full bg-[#FBEBE8] text-[#CE4D47] border border-[#F7C6C2] text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-sm font-semibold text-[#1F1A17]">
                             {q.question}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-[#6B635B] mt-0.5">
                             Why it matters: {q.why_it_matters}
                           </p>
                         </div>
@@ -771,17 +866,17 @@ function LeadDetailContent() {
             {/* Block 5: Likely objections */}
             {Array.isArray(lead.call_brief.objections) && lead.call_brief.objections.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-2">
                   Likely objections & replies
                 </div>
                 <div className="space-y-3">
                   {lead.call_brief.objections.map((item, idx) => (
-                    <div key={idx} className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5">
-                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                        <span>⚠️ If customer says:</span>
+                    <div key={idx} className="bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl p-3.5">
+                      <div className="text-xs font-bold text-[#B45309] flex items-center gap-1.5">
+                        <span>If customer says:</span>
                         <span>"{item.objection}"</span>
                       </div>
-                      <div className="text-sm font-medium text-gray-900 mt-1 pl-4 border-l-2 border-amber-400">
+                      <div className="text-sm font-medium text-[#1F1A17] mt-1 pl-4 border-l-2 border-[#D97706]">
                         {item.response}
                       </div>
                     </div>
@@ -793,10 +888,10 @@ function LeadDetailContent() {
             {/* Block 6: Closing ask */}
             {lead.call_brief.closing_ask && (
               <div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <div className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider mb-1">
                   Closing ask (Before hanging up)
                 </div>
-                <p className="text-sm font-semibold text-gray-900 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                <p className="text-sm font-semibold text-[#1F1A17] bg-[#FAF5EF] p-3 rounded-xl border border-[#EDE5DC]">
                   {lead.call_brief.closing_ask}
                 </p>
               </div>
@@ -805,12 +900,12 @@ function LeadDetailContent() {
             {/* Block 7: Avoid */}
             {Array.isArray(lead.call_brief.avoid) && lead.call_brief.avoid.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-red-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <span>⛔</span> Things to avoid on this call
+                <div className="text-[11px] font-semibold text-[#C53929] uppercase tracking-wider mb-2">
+                  Things to avoid on this call
                 </div>
                 <ul className="space-y-1.5">
                   {lead.call_brief.avoid.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs font-medium text-red-800 bg-red-50 p-2 rounded-lg border border-red-100">
+                    <li key={idx} className="flex items-start gap-2 text-xs font-medium text-[#C53929] bg-[#FDE8E7] p-2.5 rounded-lg border border-[#F7C6C2]">
                       <span>•</span>
                       <span>{item}</span>
                     </li>
@@ -820,7 +915,7 @@ function LeadDetailContent() {
             )}
 
             {/* Brief Footer: Generated info + Regenerate */}
-            <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-400">
+            <div className="pt-4 border-t border-[#EDE5DC] flex flex-wrap items-center justify-between gap-3 text-xs text-[#8C827A]">
               <span>
                 Generated by {lead.call_brief.generated_by || "Salesperson"}
                 {lead.call_brief.generated_at
@@ -831,7 +926,7 @@ function LeadDetailContent() {
               <button
                 onClick={handleGenerateBrief}
                 disabled={generatingBrief}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+                className="text-xs font-semibold text-[#CE4D47] hover:text-[#B83E38] disabled:opacity-50 transition-colors"
               >
                 {generatingBrief ? "Regenerating brief…" : "↻ Regenerate brief"}
               </button>
@@ -839,14 +934,14 @@ function LeadDetailContent() {
           </div>
         ) : (
           /* No brief yet state */
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-gray-900">Call Brief</h2>
-              <p className="text-sm text-gray-600 mt-0.5">
+              <h2 className="text-base font-bold text-[#1F1A17]">Call Brief</h2>
+              <p className="text-sm text-[#6B635B] mt-0.5">
                 Get an opening line, three questions and objection replies for this call.
               </p>
               {briefError && (
-                <p className="text-xs text-red-600 mt-2 font-medium">
+                <p className="text-xs text-[#C53929] mt-2 font-medium">
                   {briefError}
                 </p>
               )}
@@ -855,7 +950,7 @@ function LeadDetailContent() {
             <button
               onClick={handleGenerateBrief}
               disabled={generatingBrief}
-              className="shrink-0 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="shrink-0 px-4 py-2.5 bg-[#CE4D47] hover:bg-[#B83E38] active:bg-[#A33530] text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {generatingBrief ? (
                 <>
@@ -875,13 +970,13 @@ function LeadDetailContent() {
         )}
 
         {/* 6. Ask AI Sales Coach Chat Panel */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EDE5DC] pb-3">
             <div>
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-base font-bold text-[#1F1A17]">
                 Ask AI about {lead.name ? lead.name.trim().split(/\s+/)[0] : "Lead"}
               </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-[#6B635B] mt-0.5">
                 Answers use this lead's details, analysis and call brief.
               </p>
             </div>
@@ -889,7 +984,7 @@ function LeadDetailContent() {
             {Array.isArray(lead.chat) && lead.chat.length > 0 && (
               <button
                 onClick={handleClearChat}
-                className="text-xs text-gray-400 hover:text-red-600 font-medium transition-colors"
+                className="text-xs text-[#8C827A] hover:text-[#CE4D47] font-medium transition-colors"
               >
                 Clear chat
               </button>
@@ -899,13 +994,12 @@ function LeadDetailContent() {
           {/* Messages scroll box */}
           <div
             ref={chatScrollRef}
-            className="h-[340px] sm:h-[420px] overflow-y-auto space-y-3.5 pr-1 border border-gray-100 bg-gray-50/60 rounded-xl p-4"
+            className="h-[340px] sm:h-[420px] overflow-y-auto space-y-3.5 pr-1 border border-[#EDE5DC] bg-[#FAF5EF]/60 rounded-xl p-4"
           >
             {(!lead.chat || lead.chat.length === 0) && !pendingUserMessage ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
-                <span className="text-2xl mb-1.5">💬</span>
-                <p className="text-sm font-medium text-gray-600">No messages yet</p>
-                <p className="text-xs text-gray-400 max-w-xs mt-1">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#8C827A]">
+                <p className="text-sm font-medium text-[#1F1A17]">No messages yet</p>
+                <p className="text-xs text-[#6B635B] max-w-xs mt-1">
                   Ask strategy advice, request script adjustments, or click one of the suggested questions below.
                 </p>
               </div>
@@ -919,15 +1013,15 @@ function LeadDetailContent() {
                       className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
                     >
                       {isUser && msg.author && (
-                        <span className="text-[10px] text-gray-400 mb-0.5 mr-1 font-medium">
+                        <span className="text-[10px] text-[#8C827A] mb-0.5 mr-1 font-medium">
                           {msg.author}
                         </span>
                       )}
                       <div
                         className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap ${
                           isUser
-                            ? "bg-indigo-600 text-white rounded-br-xs"
-                            : "bg-white border border-gray-200 text-gray-800 rounded-bl-xs shadow-2xs"
+                            ? "bg-[#CE4D47] text-white rounded-br-xs"
+                            : "bg-white border border-[#EDE5DC] text-[#1F1A17] rounded-bl-xs shadow-2xs"
                         }`}
                       >
                         {msg.content}
@@ -936,7 +1030,7 @@ function LeadDetailContent() {
                       {!isUser && (
                         <button
                           onClick={() => handleCopyChatMessage(msg.content, idx)}
-                          className="mt-1 ml-1 text-[11px] text-gray-400 hover:text-indigo-600 font-medium transition-colors flex items-center gap-1"
+                          className="mt-1 ml-1 text-[11px] text-[#8C827A] hover:text-[#CE4D47] font-medium transition-colors flex items-center gap-1"
                         >
                           {copiedChatIndex === idx ? "✓ Copied" : "Copy"}
                         </button>
@@ -948,10 +1042,10 @@ function LeadDetailContent() {
                 {/* Optimistic pending user message */}
                 {pendingUserMessage && (
                   <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-gray-400 mb-0.5 mr-1 font-medium">
+                    <span className="text-[10px] text-[#8C827A] mb-0.5 mr-1 font-medium">
                       {pendingUserMessage.author}
                     </span>
-                    <div className="max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap bg-indigo-600 text-white rounded-br-xs opacity-90">
+                    <div className="max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap bg-[#CE4D47] text-white rounded-br-xs opacity-90">
                       {pendingUserMessage.content}
                     </div>
                   </div>
@@ -960,8 +1054,8 @@ function LeadDetailContent() {
                 {/* Thinking bubble */}
                 {sendingChat && (
                   <div className="flex flex-col items-start">
-                    <div className="bg-white border border-gray-200 text-gray-500 rounded-2xl rounded-bl-xs p-3 text-xs flex items-center gap-2 shadow-2xs">
-                      <svg className="w-3.5 h-3.5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                    <div className="bg-white border border-[#EDE5DC] text-[#6B635B] rounded-2xl rounded-bl-xs p-3 text-xs flex items-center gap-2 shadow-2xs">
+                      <svg className="w-3.5 h-3.5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                       </svg>
@@ -975,7 +1069,7 @@ function LeadDetailContent() {
 
           {/* Chat error notification */}
           {chatError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 flex items-center justify-between">
+            <div className="bg-[#FDE8E7] border border-[#F7C6C2] text-[#C53929] text-xs rounded-xl p-3 flex items-center justify-between">
               <span>{chatError}</span>
               <button
                 onClick={() => handleSendChat(chatInput)}
@@ -999,7 +1093,7 @@ function LeadDetailContent() {
                 key={chip}
                 onClick={() => handleSendChat(chip)}
                 disabled={sendingChat}
-                className="shrink-0 px-3 py-1 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 border border-gray-200 rounded-full text-xs text-gray-600 transition-colors disabled:opacity-50"
+                className="shrink-0 px-3 py-1 bg-[#FAF5EF] hover:bg-[#FBEBE8] hover:border-[#F7C6C2] hover:text-[#CE4D47] border border-[#EDE5DC] rounded-full text-xs text-[#6B635B] transition-colors disabled:opacity-50"
               >
                 {chip}
               </button>
@@ -1026,13 +1120,13 @@ function LeadDetailContent() {
               disabled={sendingChat}
               rows={2}
               placeholder="Ask anything about this lead (Enter to send, Shift+Enter for newline)…"
-              className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400 resize-none disabled:opacity-60 bg-white"
+              className="flex-1 text-sm text-[#1F1A17] border border-[#EDE5DC] rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent placeholder-[#A0988F] resize-none disabled:opacity-60 bg-white"
             />
 
             <button
               type="submit"
               disabled={!chatInput.trim() || sendingChat}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed h-[42px] flex items-center justify-center shrink-0"
+              className="px-4 py-2.5 bg-[#CE4D47] hover:bg-[#B83E38] active:bg-[#A33530] text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed h-[42px] flex items-center justify-center shrink-0"
             >
               Send
             </button>
@@ -1042,159 +1136,159 @@ function LeadDetailContent() {
         {/* 7. Two-Column Grid for Cards (Items 7-11) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Item 7: Customer Information */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs">
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase mb-4">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase mb-4">
               Customer Information
             </h2>
-            <dl className="divide-y divide-gray-100 text-sm">
+            <dl className="divide-y divide-[#EDE5DC] text-sm">
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Name</dt>
-                <dd className="font-medium text-gray-900 text-right">{lead.name}</dd>
+                <dt className="text-xs font-medium text-[#6B635B]">Name</dt>
+                <dd className="font-medium text-[#1F1A17] text-right">{lead.name}</dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Phone</dt>
-                <dd className="font-medium text-gray-900 text-right">
-                  <a href={`tel:${lead.phone}`} className="text-indigo-600 hover:underline">
+                <dt className="text-xs font-medium text-[#6B635B]">Phone</dt>
+                <dd className="font-medium text-[#1F1A17] text-right">
+                  <a href={`tel:${lead.phone}`} className="text-[#CE4D47] hover:underline font-mono">
                     {lead.phone}
                   </a>
                 </dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Email</dt>
-                <dd className="text-right text-gray-700">
+                <dt className="text-xs font-medium text-[#6B635B]">Email</dt>
+                <dd className="text-right text-[#1F1A17]">
                   {lead.email ? (
-                    <a href={`mailto:${lead.email}`} className="text-indigo-600 hover:underline">
+                    <a href={`mailto:${lead.email}`} className="text-[#CE4D47] hover:underline">
                       {lead.email}
                     </a>
                   ) : (
-                    <span className="text-gray-400">Not provided</span>
+                    <span className="text-[#8C827A]">Not provided</span>
                   )}
                 </dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Location</dt>
-                <dd className="text-right text-gray-900 font-medium">
-                  {lead.location || <span className="text-gray-400 font-normal">Not shared</span>}
+                <dt className="text-xs font-medium text-[#6B635B]">Location</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">
+                  {lead.location || <span className="text-[#8C827A] font-normal">Not shared</span>}
                 </dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Property Requirement</dt>
-                <dd className="text-right text-gray-900 font-medium">
-                  {lead.property_requirement || <span className="text-gray-400 font-normal">Not specified</span>}
+                <dt className="text-xs font-medium text-[#6B635B]">Property Requirement</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">
+                  {lead.property_requirement || <span className="text-[#8C827A] font-normal">Not specified</span>}
                 </dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Budget</dt>
-                <dd className="text-right text-gray-900 font-medium">
-                  {lead.budget || <span className="text-gray-400 font-normal">Not shared</span>}
+                <dt className="text-xs font-medium text-[#6B635B]">Budget</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">
+                  {lead.budget || <span className="text-[#8C827A] font-normal">Not shared</span>}
                 </dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Buying Timeline</dt>
-                <dd className="text-right text-gray-900 font-medium">{lead.timeline}</dd>
+                <dt className="text-xs font-medium text-[#6B635B]">Buying Timeline</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">{lead.timeline}</dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Added at</dt>
-                <dd className="text-right text-gray-600">{formattedCreatedAt}</dd>
+                <dt className="text-xs font-medium text-[#6B635B]">Added at</dt>
+                <dd className="text-right text-[#6B635B]">{formattedCreatedAt}</dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Added by</dt>
-                <dd className="text-right text-gray-900 font-medium">{lead.created_by || "—"}</dd>
+                <dt className="text-xs font-medium text-[#6B635B]">Added by</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">{lead.created_by || "—"}</dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
-                <dt className="text-xs font-medium text-gray-500">Claimed by</dt>
-                <dd className="text-right text-gray-900 font-medium">
-                  {lead.claimed_by || <span className="text-gray-400 font-normal">Unclaimed</span>}
+                <dt className="text-xs font-medium text-[#6B635B]">Claimed by</dt>
+                <dd className="text-right text-[#1F1A17] font-medium">
+                  {lead.claimed_by || <span className="text-[#8C827A] font-normal">Unclaimed</span>}
                 </dd>
               </div>
             </dl>
           </div>
 
           {/* Item 8: Customer Message */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col">
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase mb-3">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase mb-3">
               Customer Message
             </h2>
-            <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-sans">
+            <div className="flex-1 bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl p-4 text-sm text-[#1F1A17] whitespace-pre-wrap leading-relaxed font-sans">
               {lead.message}
             </div>
           </div>
 
           {/* Item 9: Key Requirements */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs">
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase mb-3">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase mb-3">
               Key Requirements
             </h2>
             {analysis.key_requirements && Object.keys(analysis.key_requirements).length > 0 ? (
-              <dl className="divide-y divide-gray-100 text-sm">
+              <dl className="divide-y divide-[#EDE5DC] text-sm">
                 {Object.entries(analysis.key_requirements).map(([k, v]) => (
                   <div key={k} className="py-2 flex justify-between gap-4">
-                    <dt className="text-xs font-medium text-gray-500">{k}</dt>
-                    <dd className="text-sm font-semibold text-gray-900 text-right">{v}</dd>
+                    <dt className="text-xs font-medium text-[#6B635B]">{k}</dt>
+                    <dd className="text-sm font-semibold text-[#1F1A17] text-right">{v}</dd>
                   </div>
                 ))}
               </dl>
             ) : (
-              <p className="text-sm text-gray-400 italic">No key requirements extracted.</p>
+              <p className="text-sm text-[#8C827A] italic">No key requirements extracted.</p>
             )}
           </div>
 
           {/* Item 10: What's Missing */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs">
             <div className="mb-3">
-              <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
+              <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase">
                 What's Missing
               </h2>
-              <p className="text-xs text-gray-400 mt-0.5">Details the lead did not provide</p>
+              <p className="text-xs text-[#8C827A] mt-0.5">Details the lead did not provide</p>
             </div>
             {Array.isArray(analysis.missing_info) && analysis.missing_info.length > 0 ? (
-              <ul className="space-y-2 text-sm text-gray-700">
+              <ul className="space-y-2 text-sm text-[#1F1A17]">
                 {analysis.missing_info.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-2">
-                    <span className="text-amber-500 shrink-0">?</span>
+                    <span className="text-[#D97706] shrink-0 font-bold">?</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500 italic">Nothing critical missing</p>
+              <p className="text-sm text-[#6B635B] italic">Nothing critical missing</p>
             )}
           </div>
 
           {/* Item 11: Objections and Concerns */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs lg:col-span-2">
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase mb-3">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs lg:col-span-2">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase mb-3">
               Objections and Concerns
             </h2>
             {Array.isArray(analysis.objections) && analysis.objections.length > 0 ? (
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#1F1A17]">
                 {analysis.objections.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    <span className="text-red-500 shrink-0 mt-0.5">⚠️</span>
+                  <li key={idx} className="flex items-start gap-2 bg-[#FAF5EF] p-3 rounded-xl border border-[#EDE5DC]">
+                    <span className="text-[#C53929] font-bold shrink-0">•</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500 italic">None identified yet</p>
+              <p className="text-sm text-[#6B635B] italic">None identified yet</p>
             )}
           </div>
         </div>
 
         {/* Item 12: Suggested Response */}
         {analysis.suggested_response && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-4">
-            <h2 className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
+          <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs space-y-4">
+            <h2 className="text-xs font-semibold text-[#8C827A] tracking-wider uppercase">
               Suggested Response
             </h2>
-            <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl text-sm text-gray-800 leading-relaxed">
+            <div className="p-4 bg-[#FBEBE8]/60 border border-[#F7C6C2] rounded-xl text-sm text-[#1F1A17] leading-relaxed">
               {analysis.suggested_response}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => handleCopy(analysis.suggested_response)}
-                className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 border border-[#EDE5DC] hover:bg-[#FAF5EF] text-[#1F1A17] text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
               >
                 {copied ? "✓ Copied" : "Copy"}
               </button>
@@ -1204,14 +1298,14 @@ function LeadDetailContent() {
                   href={waUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+                  className="px-4 py-2 bg-[#2E7D32] hover:bg-[#256628] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
                 >
-                  <span>💬</span> Send on WhatsApp
+                  Send on WhatsApp
                 </a>
               ) : (
                 <button
                   disabled
-                  className="px-4 py-2 bg-gray-100 text-gray-400 text-xs font-semibold rounded-xl cursor-not-allowed"
+                  className="px-4 py-2 bg-[#FAF5EF] border border-[#EDE5DC] text-[#8C827A] text-xs font-semibold rounded-xl cursor-not-allowed"
                 >
                   Send on WhatsApp (Phone unavailable)
                 </button>
@@ -1219,16 +1313,207 @@ function LeadDetailContent() {
             </div>
           </div>
         )}
+
+        {/* 13. After the call: update this lead (Slice 6) */}
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="border-b border-[#EDE5DC] pb-3">
+            <h2 className="text-base font-bold text-[#1F1A17]">
+              After the call: update this lead
+            </h2>
+            <p className="text-xs text-[#6B635B] mt-0.5">
+              Log conversation notes to re-evaluate buyer criteria, re-calculate the qualification score, and update the pipeline.
+            </p>
+          </div>
+
+          {/* Form area */}
+          <div className="space-y-3">
+            <textarea
+              value={postCallNotes}
+              onChange={(e) => setPostCallNotes(e.target.value)}
+              disabled={updatingLead || !isClaimedByMe}
+              rows={4}
+              placeholder="Paste your call notes or transcript. e.g. Spoke 10 min. Wife likes the park-facing unit. Asked for 5% discount. Visit booked Sunday 11am."
+              className="w-full text-sm text-[#1F1A17] border border-[#EDE5DC] rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent placeholder-[#A0988F] resize-none disabled:bg-[#FAF5EF] disabled:cursor-not-allowed bg-white"
+            />
+
+            {/* Error banner */}
+            {updateError && (
+              <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl px-4 py-3 text-xs text-[#C53929] flex items-center justify-between">
+                <span>{updateError}</span>
+                <button
+                  onClick={handleUpdateLead}
+                  className="font-bold underline ml-3"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Action button & character helper */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-[#8C827A]">
+                {!isClaimedByMe
+                  ? "Claim this lead to log a call"
+                  : postCallNotes.trim().length < 20
+                  ? `${20 - postCallNotes.trim().length} more characters needed`
+                  : `${postCallNotes.trim().length} characters`}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleUpdateLead}
+                disabled={updatingLead || !isClaimedByMe || postCallNotes.trim().length < 20}
+                className="px-4 py-2.5 bg-[#CE4D47] hover:bg-[#B83E38] active:bg-[#A33530] text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {updatingLead ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Re-scoring…
+                  </>
+                ) : (
+                  "Log call and re-score"
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Success result card */}
+          {updateSuccessResult && (
+            <div className="bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl p-4 space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between border-b border-[#EDE5DC] pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#CE4D47]">
+                  Call Logged &amp; Lead Re-scored
+                </span>
+                <span className="text-xs font-semibold text-[#1F1A17]">
+                  Score: {updateSuccessResult.score_before} → {updateSuccessResult.score_after} (
+                  {updateSuccessResult.score_after - updateSuccessResult.score_before >= 0 ? "+" : ""}
+                  {updateSuccessResult.score_after - updateSuccessResult.score_before})
+                  {updateSuccessResult.tag_before !== updateSuccessResult.tag_after && (
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] bg-[#FBEBE8] text-[#CE4D47] border border-[#F7C6C2]">
+                      Moved to {updateSuccessResult.tag_after}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {updateSuccessResult.reason && (
+                <p className="text-xs text-[#1F1A17] font-medium leading-relaxed">
+                  {updateSuccessResult.reason}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                {Array.isArray(updateSuccessResult.questions_answered) && updateSuccessResult.questions_answered.length > 0 && (
+                  <div className="bg-white border border-[#EDE5DC] rounded-lg p-2.5">
+                    <span className="font-semibold text-[#2E7D32] block mb-1">Answered on this call:</span>
+                    <ul className="space-y-1 text-[#1F1A17]">
+                      {updateSuccessResult.questions_answered.map((ans, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-[#2E7D32]">•</span>
+                          <span>{ans}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(updateSuccessResult.questions_still_open) && updateSuccessResult.questions_still_open.length > 0 && (
+                  <div className="bg-white border border-[#EDE5DC] rounded-lg p-2.5">
+                    <span className="font-semibold text-[#B45309] block mb-1">Still open:</span>
+                    <ul className="space-y-1 text-[#1F1A17]">
+                      {updateSuccessResult.questions_still_open.map((q, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-[#B45309]">•</span>
+                          <span>{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Call History Timeline */}
+          {Array.isArray(lead.call_log) && lead.call_log.length > 0 && (
+            <div className="pt-4 border-t border-[#EDE5DC] space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8C827A]">
+                Call History ({lead.call_log.length})
+              </h3>
+
+              <div className="space-y-3">
+                {[...lead.call_log].reverse().map((entry, idx) => {
+                  const scoreDiff = (entry.score_after ?? 0) - (entry.score_before ?? 0);
+                  const isExpanded = Boolean(expandedCallLogs[idx]);
+                  const dateStr = entry.at ? new Date(entry.at).toLocaleString() : "Recently";
+
+                  return (
+                    <div key={idx} className="bg-[#FAF5EF]/70 border border-[#EDE5DC] rounded-xl p-3.5 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-[#1F1A17]">{entry.by || "Salesperson"}</span>
+                          <span className="text-[#8C827A]">{dateStr}</span>
+                        </div>
+                        <span className={`font-semibold px-2 py-0.5 rounded-full text-[11px] ${
+                          scoreDiff > 0
+                            ? "bg-[#EBF7EE] text-[#2E7D32] border border-[#C8E6C9]"
+                            : scoreDiff < 0
+                            ? "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]"
+                            : "bg-white text-[#6B635B] border border-[#EDE5DC]"
+                        }`}>
+                          Score: {entry.score_before} → {entry.score_after} ({scoreDiff >= 0 ? "+" : ""}{scoreDiff})
+                        </span>
+                      </div>
+
+                      {entry.summary && (
+                        <p className="text-xs text-[#1F1A17] font-medium leading-relaxed">
+                          {entry.summary}
+                        </p>
+                      )}
+
+                      {entry.reason && (
+                        <p className="text-[11px] text-[#6B635B] italic">
+                          Why: {entry.reason}
+                        </p>
+                      )}
+
+                      {/* Expandable full notes */}
+                      {entry.notes && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleCallLogExpansion(idx)}
+                            className="text-[11px] text-[#CE4D47] hover:underline font-medium"
+                          >
+                            {isExpanded ? "Hide raw notes" : "View raw notes"}
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-1.5 p-2.5 bg-white border border-[#EDE5DC] rounded-lg text-xs text-[#1F1A17] whitespace-pre-wrap font-sans">
+                              {entry.notes}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Call Mode Full-screen Overlay */}
       {callModeOpen && lead.call_brief && (
-        <div className="fixed inset-0 z-50 bg-gray-950 text-white overflow-y-auto p-4 sm:p-8 flex flex-col justify-between animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-[#141210] text-white overflow-y-auto p-4 sm:p-8 flex flex-col justify-between animate-in fade-in duration-200">
           <div className="max-w-3xl mx-auto w-full space-y-6">
             {/* Header bar */}
-            <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div className="flex items-center justify-between border-b border-[#2C2723] pb-4">
               <div>
-                <div className="text-xs uppercase font-bold tracking-wider text-indigo-400">
+                <div className="text-xs uppercase font-bold tracking-wider text-[#E06D67]">
                   Call Mode
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
@@ -1237,34 +1522,34 @@ function LeadDetailContent() {
                 {lead.phone && (
                   <a
                     href={`tel:${lead.phone}`}
-                    className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold text-green-400 hover:text-green-300 font-mono mt-1 underline"
+                    className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold text-[#81C784] hover:text-[#A5D6A7] font-mono mt-1 underline"
                   >
-                    <span>📞</span> Tap to call: {lead.phone}
+                    Tap to call: {lead.phone}
                   </a>
                 )}
               </div>
 
               <button
                 onClick={() => setCallModeOpen(false)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold rounded-xl border border-gray-700 transition-colors"
+                className="px-4 py-2 bg-[#221E1B] hover:bg-[#2F2925] text-[#EDE5DC] text-xs font-semibold rounded-xl border border-[#3A332E] transition-colors"
               >
                 ✕ Close (Esc)
               </button>
             </div>
 
             {/* Call Goal */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+            <div className="bg-[#1C1815] border border-[#2C2723] rounded-2xl p-4">
+              <div className="text-xs font-bold text-[#8C827A] uppercase tracking-wider mb-1">
                 Goal
               </div>
-              <p className="text-base sm:text-lg font-bold text-indigo-300">
+              <p className="text-base sm:text-lg font-bold text-[#F7C6C2]">
                 {lead.call_brief.call_goal}
               </p>
             </div>
 
             {/* Opening Line */}
-            <div className="bg-indigo-950/70 border border-indigo-700/60 rounded-2xl p-5 sm:p-6 shadow-md">
-              <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">
+            <div className="bg-[#2A1D1C] border border-[#CE4D47]/40 rounded-2xl p-5 sm:p-6 shadow-md">
+              <div className="text-xs font-bold text-[#F7C6C2] uppercase tracking-wider mb-2">
                 Opening Line (First 20s)
               </div>
               <p className="text-xl sm:text-2xl font-bold text-white leading-relaxed">
@@ -1275,19 +1560,19 @@ function LeadDetailContent() {
             {/* 3 Discovery Questions */}
             {Array.isArray(lead.call_brief.discovery_questions) && (
               <div className="space-y-3">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                <div className="text-xs font-bold text-[#8C827A] uppercase tracking-wider">
                   Discovery Questions
                 </div>
                 <div className="space-y-3">
                   {lead.call_brief.discovery_questions.map((q, idx) => (
                     <div
                       key={idx}
-                      className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start gap-3"
+                      className="bg-[#1C1815] border border-[#2C2723] rounded-xl p-4 flex items-start gap-3"
                     >
-                      <span className="w-6 h-6 rounded-full bg-indigo-900 text-indigo-200 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="w-6 h-6 rounded-full bg-[#CE4D47]/20 text-[#F7C6C2] border border-[#CE4D47]/40 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                         {idx + 1}
                       </span>
-                      <p className="text-base sm:text-lg font-semibold text-gray-100">
+                      <p className="text-base sm:text-lg font-semibold text-[#EDE5DC]">
                         {q.question}
                       </p>
                     </div>
@@ -1298,11 +1583,11 @@ function LeadDetailContent() {
 
             {/* Closing Ask */}
             {lead.call_brief.closing_ask && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+              <div className="bg-[#1C1815] border border-[#2C2723] rounded-2xl p-4">
+                <div className="text-xs font-bold text-[#8C827A] uppercase tracking-wider mb-1">
                   Closing Ask
                 </div>
-                <p className="text-base sm:text-lg font-bold text-amber-300">
+                <p className="text-base sm:text-lg font-bold text-[#FDE3B7]">
                   {lead.call_brief.closing_ask}
                 </p>
               </div>
@@ -1313,7 +1598,7 @@ function LeadDetailContent() {
               <div className="pt-2">
                 <button
                   onClick={() => setShowCallModeObjections((prev) => !prev)}
-                  className="px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-semibold rounded-xl text-gray-300 flex items-center gap-2 transition-colors"
+                  className="px-4 py-2 bg-[#1C1815] hover:bg-[#28221E] border border-[#2C2723] text-xs font-semibold rounded-xl text-[#EDE5DC] flex items-center gap-2 transition-colors"
                 >
                   <span>{showCallModeObjections ? "▼" : "▶"}</span>
                   {showCallModeObjections ? "Hide Objections" : "Show Objections"}
@@ -1324,12 +1609,12 @@ function LeadDetailContent() {
                     {lead.call_brief.objections.map((item, idx) => (
                       <div
                         key={idx}
-                        className="bg-gray-900/90 border border-amber-900/60 rounded-xl p-4"
+                        className="bg-[#241D17] border border-[#D97706]/30 rounded-xl p-4"
                       >
-                        <div className="text-xs font-bold text-amber-400 mb-1">
-                          ⚠️ "{item.objection}"
+                        <div className="text-xs font-bold text-[#FDE3B7] mb-1">
+                          "{item.objection}"
                         </div>
-                        <div className="text-sm sm:text-base font-medium text-gray-200 pl-3 border-l-2 border-amber-500">
+                        <div className="text-sm sm:text-base font-medium text-[#EDE5DC] pl-3 border-l-2 border-[#D97706]">
                           {item.response}
                         </div>
                       </div>
@@ -1349,9 +1634,9 @@ export default function LeadDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <svg className="w-5 h-5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+        <div className="min-h-screen flex items-center justify-center bg-[#FAF5EF]">
+          <div className="flex items-center gap-2 text-sm text-[#8C827A]">
+            <svg className="w-5 h-5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>

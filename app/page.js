@@ -17,14 +17,14 @@ const ALLOWED_USERS = ["Salesperson A", "Salesperson B"];
 const POLL_INTERVAL_MS = 4000;
 
 const TAG_STYLES = {
-  Hot: "bg-red-100 text-red-700 border border-red-200",
-  Warm: "bg-amber-100 text-amber-700 border border-amber-200",
-  Cold: "bg-blue-100 text-blue-700 border border-blue-200",
+  Hot: "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]",
+  Warm: "bg-[#FEF3E2] text-[#B45309] border border-[#FDE3B7]",
+  Cold: "bg-[#F0ECE7] text-[#5C554E] border border-[#E2DBD3]",
 };
 const TAG_DOT = {
-  Hot: "bg-red-500",
-  Warm: "bg-amber-500",
-  Cold: "bg-blue-400",
+  Hot: "bg-[#CE4D47]",
+  Warm: "bg-[#D97706]",
+  Cold: "bg-[#8C827A]",
 };
 
 const EMPTY_FORM = {
@@ -65,27 +65,27 @@ function applySort(leads, sort) {
 
 function SignInScreen({ onSelect }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-        <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF5EF] px-4">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#EDE5DC] p-8 text-center">
+        <div className="w-12 h-12 bg-[#CE4D47] rounded-xl flex items-center justify-center mx-auto mb-4">
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 mb-1">Lead Prioritizer</h1>
-        <p className="text-sm text-gray-500 mb-8">Continue as one of the team members</p>
+        <h1 className="text-xl font-semibold text-[#1F1A17] mb-1">Lead Prioritizer</h1>
+        <p className="text-sm text-[#6B635B] mb-8">Continue as one of the team members</p>
         <div className="space-y-3">
           <button onClick={() => onSelect("Salesperson A")}
-            className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 active:bg-indigo-800 transition-colors">
+            className="w-full py-3 px-4 bg-[#CE4D47] text-white rounded-xl font-medium hover:bg-[#B83E38] active:bg-[#A33530] transition-colors">
             Continue as Salesperson A
           </button>
           <button onClick={() => onSelect("Salesperson B")}
-            className="w-full py-3 px-4 bg-white text-gray-700 rounded-xl font-medium border border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#FAF5EF] active:bg-[#F2ECE4] transition-colors">
             Continue as Salesperson B
           </button>
         </div>
-        <p className="mt-6 text-xs text-gray-400">Demo identity only — not a security mechanism.</p>
+        <p className="mt-6 text-xs text-[#8C827A]">Demo identity only — not a security mechanism.</p>
       </div>
     </div>
   );
@@ -101,11 +101,11 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={!submitting ? onClose : undefined} />
-      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-y-auto max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">New lead</h2>
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-y-auto max-h-[90vh] border border-[#EDE5DC]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE5DC]">
+          <h2 className="text-base font-semibold text-[#1F1A17]">New lead</h2>
           {!submitting && (
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="text-[#8C827A] hover:text-[#1F1A17] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -116,81 +116,81 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="p-6 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Customer name <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#6B635B] mb-1">
+              Customer name <span className="text-[#CE4D47]">*</span>
             </label>
             <input name="name" value={formData.name} onChange={handleChange} required
               placeholder="e.g. Ravi Shankar"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+              className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
           </div>
 
           {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Phone number <span className="text-red-500">*</span>
+              <label className="block text-xs font-medium text-[#6B635B] mb-1">
+                Phone number <span className="text-[#CE4D47]">*</span>
               </label>
               <input name="phone" type="tel" value={formData.phone} onChange={handleChange} required
                 placeholder="e.g. +91 98765 43210"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Email <span className="text-gray-400 text-[11px]">(optional)</span>
+              <label className="block text-xs font-medium text-[#6B635B] mb-1">
+                Email <span className="text-[#8C827A] text-[11px]">(optional)</span>
               </label>
               <input name="email" type="email" value={formData.email} onChange={handleChange}
                 placeholder="e.g. ravi@example.com"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
             </div>
           </div>
 
           {/* Location + Budget */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Target / Preferred Location</label>
+              <label className="block text-xs font-medium text-[#6B635B] mb-1">Target / Preferred Location</label>
               <input name="location" value={formData.location} onChange={handleChange}
                 placeholder="e.g. Whitefield, Indiranagar"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Budget</label>
+              <label className="block text-xs font-medium text-[#6B635B] mb-1">Budget</label>
               <input name="budget" value={formData.budget} onChange={handleChange}
                 placeholder="e.g. ₹80L"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
             </div>
           </div>
 
           {/* Property requirement */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Property requirement</label>
+            <label className="block text-xs font-medium text-[#6B635B] mb-1">Property requirement</label>
             <input name="property_requirement" value={formData.property_requirement} onChange={handleChange}
               placeholder="e.g. 3BHK flat, ready-to-move"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+              className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white" />
           </div>
 
           {/* Timeline */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Timeline <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#6B635B] mb-1">
+              Timeline <span className="text-[#CE4D47]">*</span>
             </label>
             <select name="timeline" value={formData.timeline} onChange={handleChange} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white">
+              className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent bg-white">
               {TIMELINE_ORDER.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
           {/* Message */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Message / notes <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-[#6B635B] mb-1">
+              Message / notes <span className="text-[#CE4D47]">*</span>
             </label>
             <textarea name="message" value={formData.message} onChange={handleChange} required rows={4}
               placeholder="Paste the customer's enquiry, chat, or your call notes here…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none" />
+              className="w-full border border-[#EDE5DC] rounded-lg px-3 py-2 text-sm text-[#1F1A17] placeholder-[#A0988F] focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent resize-none bg-white" />
           </div>
 
           {submitError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-lg px-4 py-3 text-sm text-[#C53929]">
               {submitError}
             </div>
           )}
@@ -198,12 +198,12 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
           <div className="flex gap-3 pt-1">
             {!submitting && (
               <button type="button" onClick={onClose}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                className="flex-1 py-2.5 px-4 rounded-xl border border-[#EDE5DC] text-sm font-medium text-[#1F1A17] hover:bg-[#FAF5EF] transition-colors">
                 Cancel
               </button>
             )}
             <button type="submit" disabled={submitting}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 px-4 rounded-xl bg-[#CE4D47] text-white text-sm font-medium hover:bg-[#B83E38] disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
               {submitting ? (
                 <>
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -304,12 +304,12 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
   // Stage 1: Inbound Leads (Total leads)
   // Stage 2: Claimed & Assigned (claimed_by is set)
   // Stage 3: Call Brief Prepared (call_brief is generated)
-  // Stage 4: Follow-up / Active Coaching (chat messages exchanged)
+  // Stage 4: Call Logged (at least one call_log entry recorded)
   const funnelStages = [
-    { label: "New Inbound Leads", count: leads.length, color: "bg-indigo-600", desc: "Total incoming inquiries" },
-    { label: "Claimed & Owned", count: leads.filter((l) => Boolean(l.claimed_by)).length, color: "bg-blue-600", desc: "Assigned to a sales rep" },
-    { label: "Brief Prepared", count: leads.filter((l) => Boolean(l.call_brief)).length, color: "bg-purple-600", desc: "Call script generated" },
-    { label: "Engaged & Worked", count: leads.filter((l) => Array.isArray(l.chat) && l.chat.length > 0).length, color: "bg-emerald-600", desc: "AI sales coach consulted" },
+    { label: "New Inbound Leads", count: leads.length, color: "bg-[#CE4D47]", desc: "Total incoming inquiries" },
+    { label: "Claimed & Owned", count: leads.filter((l) => Boolean(l.claimed_by)).length, color: "bg-[#D97706]", desc: "Assigned to a sales rep" },
+    { label: "Brief Prepared", count: leads.filter((l) => Boolean(l.call_brief)).length, color: "bg-[#8C827A]", desc: "Call script generated" },
+    { label: "Call logged", count: leads.filter((l) => Array.isArray(l.call_log) && l.call_log.length > 0).length, color: "bg-[#2E7D32]", desc: "Completed sales calls recorded" },
   ];
 
   return (
@@ -318,67 +318,67 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Widget 1: The Priority Matrix */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-base font-bold text-[#1F1A17]">
                 1. Priority Matrix (Where to Focus First)
               </h2>
-              <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-semibold bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2] px-2 py-0.5 rounded-full">
                 {topRightCount} Top Priority
               </span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-[#6B635B] mb-4">
               Click any dot in the <strong>Top-Right Quadrant</strong> (High Intent + High Budget) to open the lead immediately.
             </p>
           </div>
 
           {/* Scatter Plot Grid */}
-          <div className="relative w-full aspect-square max-h-[340px] bg-gray-50 border border-gray-200 rounded-xl overflow-hidden p-2 select-none">
+          <div className="relative w-full aspect-square max-h-[340px] bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl overflow-hidden p-2 select-none">
             {/* Quadrant Divider Lines */}
-            <div className="absolute inset-x-0 top-1/2 border-b border-dashed border-gray-300 pointer-events-none" />
-            <div className="absolute inset-y-0 left-1/2 border-r border-dashed border-gray-300 pointer-events-none" />
+            <div className="absolute inset-x-0 top-1/2 border-b border-dashed border-[#DCD3C7] pointer-events-none" />
+            <div className="absolute inset-y-0 left-1/2 border-r border-dashed border-[#DCD3C7] pointer-events-none" />
 
             {/* Quadrant Labels */}
-            <div className="absolute top-2 right-2 text-[10px] font-bold text-red-600 bg-red-50/90 border border-red-200/80 px-2 py-0.5 rounded shadow-2xs pointer-events-none">
-              ★ High Fit & Urgency (Focus Here)
+            <div className="absolute top-2 right-2 text-[10px] font-bold text-[#C53929] bg-[#FDE8E7]/90 border border-[#F7C6C2] px-2 py-0.5 rounded pointer-events-none">
+              High Fit &amp; Urgency (Focus Here)
             </div>
-            <div className="absolute top-2 left-2 text-[10px] font-medium text-amber-700 bg-amber-50/90 px-1.5 py-0.5 rounded pointer-events-none">
+            <div className="absolute top-2 left-2 text-[10px] font-medium text-[#B45309] bg-[#FEF3E2]/90 border border-[#FDE3B7] px-1.5 py-0.5 rounded pointer-events-none">
               High Fit, Low Urgency
             </div>
-            <div className="absolute bottom-2 right-2 text-[10px] font-medium text-blue-700 bg-blue-50/90 px-1.5 py-0.5 rounded pointer-events-none">
+            <div className="absolute bottom-2 right-2 text-[10px] font-medium text-[#5C554E] bg-[#F0ECE7]/90 border border-[#E2DBD3] px-1.5 py-0.5 rounded pointer-events-none">
               Low Fit, High Urgency
             </div>
-            <div className="absolute bottom-2 left-2 text-[10px] font-medium text-gray-500 bg-gray-200/80 px-1.5 py-0.5 rounded pointer-events-none">
+            <div className="absolute bottom-2 left-2 text-[10px] font-medium text-[#8C827A] bg-[#EDE5DC]/80 px-1.5 py-0.5 rounded pointer-events-none">
               Low Priority
             </div>
 
             {/* Interactive Dots */}
             {matrixPoints.length === 0 ? (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+              <div className="w-full h-full flex items-center justify-center text-xs text-[#8C827A]">
                 No leads available to plot
               </div>
             ) : (
               matrixPoints.map((pt) => {
                 const dotColor =
                   pt.tag === "Hot"
-                    ? "bg-red-500 ring-red-200"
+                    ? "bg-[#CE4D47] ring-[#F7C6C2]"
                     : pt.tag === "Warm"
-                    ? "bg-amber-500 ring-amber-200"
-                    : "bg-blue-500 ring-blue-200";
+                    ? "bg-[#D97706] ring-[#FDE3B7]"
+                    : "bg-[#8C827A] ring-[#E2DBD3]";
 
                 return (
                   <button
                     key={pt.id}
                     onClick={() => onSelectLead(pt.id)}
                     style={{ left: `${pt.x}%`, bottom: `${pt.y}%` }}
-                    className={`absolute -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full ${dotColor} ring-4 hover:scale-130 transition-transform cursor-pointer shadow-sm z-10 group`}
+                    className={`absolute -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full ${dotColor} ring-4 hover:scale-125 transition-transform cursor-pointer shadow-xs z-10 group`}
                     title={`${pt.name} (${pt.tag} - ${pt.score}/100)`}
                   >
                     {/* Tooltip on hover */}
-                    <div className="hidden group-hover:block absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900 text-white text-[11px] py-1 px-2.5 rounded-lg shadow-lg z-30 pointer-events-none">
+                    <div className="hidden group-hover:block absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#1F1A17] text-white text-[11px] py-1 px-2.5 rounded-lg shadow-lg z-30 pointer-events-none">
                       <div className="font-bold">{pt.name} · {pt.score}/100</div>
-                      <div className="text-[10px] text-gray-300 truncate max-w-[140px]">{pt.requirement}</div>
+                      <div className="text-[10px] text-[#DCD3C7] truncate max-w-[140px]">{pt.requirement}</div>
                     </div>
                   </button>
                 );
@@ -386,39 +386,39 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
             )}
 
             {/* Axis labels */}
-            <div className="absolute bottom-1 right-1/2 translate-x-1/2 text-[9px] uppercase tracking-wider text-gray-400 font-semibold pointer-events-none">
-              Intent & Urgency →
+            <div className="absolute bottom-1 right-1/2 translate-x-1/2 text-[9px] uppercase tracking-wider text-[#8C827A] font-semibold pointer-events-none">
+              Intent &amp; Urgency →
             </div>
-            <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] uppercase tracking-wider text-gray-400 font-semibold origin-center pointer-events-none">
-              Budget & Fit →
+            <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] uppercase tracking-wider text-[#8C827A] font-semibold origin-center pointer-events-none">
+              Budget &amp; Fit →
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-            <span>🔴 Hot Leads</span>
-            <span>🟡 Warm Leads</span>
-            <span>🔵 Cold Leads</span>
+          <div className="mt-3 flex items-center justify-between text-xs text-[#6B635B]">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#CE4D47]" />Hot Leads</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#D97706]" />Warm Leads</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#8C827A]" />Cold Leads</span>
           </div>
         </div>
 
         {/* Widget 2: Immediate Urgency Tracker (Speed-to-Lead) */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-base font-bold text-[#1F1A17]">
                 2. Immediate Urgency Tracker
               </h2>
               <span
                 className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                   over24h === 0
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-red-50 text-red-700 border border-red-200"
+                    ? "bg-[#EBF7EE] text-[#2E7D32] border border-[#C8E6C9]"
+                    : "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]"
                 }`}
               >
-                {over24h === 0 ? "✓ 0 Critical" : `${over24h} Overdue`}
+                {over24h === 0 ? "0 Critical" : `${over24h} Overdue`}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mb-5">
+            <p className="text-xs text-[#6B635B] mb-5">
               Goal: Keep the <strong>Critical (Over 24h)</strong> band at zero. Contact prospects while their intent is freshest.
             </p>
           </div>
@@ -426,67 +426,67 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
           {/* Stacked Visual Bar + Donut Metric representation */}
           <div className="space-y-4">
             {/* Visual stacked percentage bar */}
-            <div className="w-full h-5 rounded-full overflow-hidden flex bg-gray-100 shadow-inner">
+            <div className="w-full h-5 rounded-full overflow-hidden flex bg-[#EDE5DC] shadow-inner">
               <div
                 style={{ width: `${under2hPct}%` }}
-                className="bg-emerald-500 hover:opacity-90 transition-all duration-300"
+                className="bg-[#2E7D32] hover:opacity-90 transition-all duration-300"
                 title={`Fresh (< 2 hrs): ${under2h}`}
               />
               <div
                 style={{ width: `${betweenPct}%` }}
-                className="bg-amber-400 hover:opacity-90 transition-all duration-300"
+                className="bg-[#D97706] hover:opacity-90 transition-all duration-300"
                 title={`Pending (2 - 24 hrs): ${between2and24h}`}
               />
               <div
                 style={{ width: `${over24hPct}%` }}
-                className="bg-rose-500 hover:opacity-90 transition-all duration-300"
+                className="bg-[#CE4D47] hover:opacity-90 transition-all duration-300"
                 title={`Critical (> 24 hrs): ${over24h}`}
               />
             </div>
 
             {/* Three Time-Band Metric Cards */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">
+              <div className="bg-[#EBF7EE] border border-[#C8E6C9] rounded-xl p-3.5 text-center">
+                <div className="text-[11px] font-semibold text-[#2E7D32] uppercase tracking-wider">
                   &lt; 2 Hours
                 </div>
-                <div className="text-2xl font-black text-emerald-700 mt-1">{under2h}</div>
-                <div className="text-[10px] text-emerald-600 mt-0.5 font-medium">{under2hPct}% share</div>
+                <div className="text-2xl font-black text-[#2E7D32] mt-1">{under2h}</div>
+                <div className="text-[10px] text-[#2E7D32] mt-0.5 font-medium">{under2hPct}% share</div>
               </div>
 
-              <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">
+              <div className="bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl p-3.5 text-center">
+                <div className="text-[11px] font-semibold text-[#B45309] uppercase tracking-wider">
                   2 – 24 Hours
                 </div>
-                <div className="text-2xl font-black text-amber-700 mt-1">{between2and24h}</div>
-                <div className="text-[10px] text-amber-600 mt-0.5 font-medium">{betweenPct}% share</div>
+                <div className="text-2xl font-black text-[#B45309] mt-1">{between2and24h}</div>
+                <div className="text-[10px] text-[#B45309] mt-0.5 font-medium">{betweenPct}% share</div>
               </div>
 
-              <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-rose-800 uppercase tracking-wider">
+              <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-3.5 text-center">
+                <div className="text-[11px] font-semibold text-[#C53929] uppercase tracking-wider">
                   &gt; 24 Hours
                 </div>
-                <div className="text-2xl font-black text-rose-700 mt-1">{over24h}</div>
-                <div className="text-[10px] text-rose-600 mt-0.5 font-medium">{over24hPct}% critical</div>
+                <div className="text-2xl font-black text-[#C53929] mt-1">{over24h}</div>
+                <div className="text-[10px] text-[#C53929] mt-0.5 font-medium">{over24hPct}% critical</div>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-gray-50 rounded-xl text-xs text-gray-600 border border-gray-100">
-            💡 <strong>Speed-to-Lead rule:</strong> Inbound buyers contacted within 15 minutes convert at 3x higher rates.
+          <div className="mt-4 p-3 bg-[#FAF5EF] rounded-xl text-xs text-[#6B635B] border border-[#EDE5DC]">
+            <strong>Speed-to-Lead rule:</strong> Inbound buyers contacted within 15 minutes convert at 3x higher rates.
           </div>
         </div>
 
         {/* Widget 3: Lead Preferences & Inventory Match */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-gray-900">
-                3. Lead Preferences & Inventory Match
+              <h2 className="text-base font-bold text-[#1F1A17]">
+                3. Lead Preferences &amp; Inventory Match
               </h2>
-              <span className="text-xs text-gray-400 font-medium">Inquiry Distribution</span>
+              <span className="text-xs text-[#8C827A] font-medium">Inquiry Distribution</span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-[#6B635B] mb-4">
               Identify inventory shortages early. If 3-BHK inquiry volume is high, cross-sell available 2.5-BHK or 4-BHK units.
             </p>
           </div>
@@ -498,20 +498,20 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
               return (
                 <div key={label} className="space-y-1">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-gray-700">{label}</span>
-                    <span className="text-gray-900">{count} leads</span>
+                    <span className="text-[#1F1A17]">{label}</span>
+                    <span className="text-[#6B635B]">{count} leads</span>
                   </div>
-                  <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#FAF5EF] border border-[#EDE5DC] h-2.5 rounded-full overflow-hidden">
                     <div
                       style={{ width: `${pct}%` }}
                       className={`h-full rounded-full transition-all duration-300 ${
                         label.includes("3-BHK")
-                          ? "bg-indigo-600"
+                          ? "bg-[#CE4D47]"
                           : label.includes("2-BHK")
-                          ? "bg-blue-500"
+                          ? "bg-[#D97706]"
                           : label.includes("Villa")
-                          ? "bg-purple-500"
-                          : "bg-emerald-500"
+                          ? "bg-[#8C827A]"
+                          : "bg-[#2E7D32]"
                       }`}
                     />
                   </div>
@@ -520,24 +520,24 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
             })}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+          <div className="mt-4 pt-3 border-t border-[#EDE5DC] text-[11px] text-[#6B635B] flex justify-between">
             <span>Primary Demand: 3-BHK &amp; 2-BHK Apartments</span>
-            <span className="font-semibold text-indigo-600">Inventory Sync Active</span>
+            <span className="font-semibold text-[#CE4D47]">Inventory Sync Active</span>
           </div>
         </div>
 
         {/* Widget 4: Cadence & Pipeline Health Funnel */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+        <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-base font-bold text-[#1F1A17]">
                 4. Cadence &amp; Pipeline Health
               </h2>
-              <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
+              <span className="text-xs text-[#CE4D47] font-semibold bg-[#FBEBE8] px-2 py-0.5 rounded-full border border-[#F7C6C2]">
                 Conversion Funnel
               </span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-[#6B635B] mb-4">
               Identifies where prospects drop off between receiving a lead and conducting AI-coached outreach.
             </p>
           </div>
@@ -549,17 +549,17 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
               return (
                 <div key={stage.label} className="space-y-1">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-gray-800 flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[10px] flex items-center justify-center font-bold">
+                    <span className="text-[#1F1A17] flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-[#FAF5EF] border border-[#EDE5DC] text-[#6B635B] text-[10px] flex items-center justify-center font-bold">
                         {idx + 1}
                       </span>
                       {stage.label}
                     </span>
-                    <span className="text-gray-900 font-bold">
-                      {stage.count} <span className="text-[10px] text-gray-400 font-normal">({widthPct}%)</span>
+                    <span className="text-[#1F1A17] font-bold">
+                      {stage.count} <span className="text-[10px] text-[#8C827A] font-normal">({widthPct}%)</span>
                     </span>
                   </div>
-                  <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#FAF5EF] border border-[#EDE5DC] h-3 rounded-full overflow-hidden">
                     <div
                       style={{ width: `${widthPct}%` }}
                       className={`h-full rounded-full transition-all duration-300 ${stage.color}`}
@@ -570,8 +570,8 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
             })}
           </div>
 
-          <div className="mt-4 p-3 bg-indigo-50/50 rounded-xl text-xs text-indigo-900 border border-indigo-100">
-            📊 <strong>Pipeline Tip:</strong> Generate a Call Brief for every claimed lead before dialing to increase your connected site-visit rate.
+          <div className="mt-4 p-3 bg-[#FBEBE8] rounded-xl text-xs text-[#1F1A17] border border-[#F7C6C2]">
+            <strong>Pipeline Tip:</strong> Generate a Call Brief for every claimed lead before dialing to increase your connected site-visit rate.
           </div>
         </div>
 
@@ -590,21 +590,23 @@ function InsightsRow({ leads }) {
     ? Math.round(leads.reduce((s, l) => s + (l.score ?? 0), 0) / total)
     : 0;
   const open = leads.filter((l) => !l.claimed_by).length;
+  const callsLogged = leads.reduce((acc, l) => acc + (Array.isArray(l.call_log) ? l.call_log.length : 0), 0);
 
   const cards = [
     { label: "Total leads", value: total },
     { label: "Hot leads", value: `${hot}`, sub: `${hotPct}% of total` },
     { label: "Avg score", value: `${avgScore}/100` },
     { label: "Open to claim", value: open },
+    { label: "Calls logged", value: callsLogged },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
       {cards.map((c) => (
-        <div key={c.label} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
-          <div className="text-xs text-gray-500 mb-1">{c.label}</div>
-          <div className="text-xl font-semibold text-gray-900">{c.value}</div>
-          {c.sub && <div className="text-xs text-gray-400 mt-0.5">{c.sub}</div>}
+        <div key={c.label} className="bg-white border border-[#EDE5DC] rounded-xl px-4 py-3 shadow-2xs">
+          <div className="text-xs text-[#8C827A] mb-1">{c.label}</div>
+          <div className="text-xl font-semibold text-[#1F1A17]">{c.value}</div>
+          {c.sub && <div className="text-xs text-[#6B635B] mt-0.5">{c.sub}</div>}
         </div>
       ))}
     </div>
@@ -621,8 +623,10 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
 
   if (theirs) {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <span>🔒</span>
+      <div className="flex items-center gap-1.5 text-xs text-[#8C827A]">
+        <svg className="w-3.5 h-3.5 text-[#8C827A] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
         <span className="truncate max-w-[100px]">{claimedBy}</span>
       </div>
     );
@@ -631,12 +635,12 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
   if (mine) {
     return (
       <div className="flex flex-col gap-1">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 w-fit">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-[#2E7D32] bg-[#EBF7EE] border border-[#C8E6C9] rounded-full px-2 py-0.5 w-fit">
           ✓ Yours
         </span>
         <button onClick={(e) => { e.stopPropagation(); onRelease(lead.id); }}
           disabled={inFlight}
-          className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50">
+          className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50">
           {inFlight ? "…" : "Release"}
         </button>
       </div>
@@ -646,7 +650,7 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
   return (
     <button onClick={(e) => { e.stopPropagation(); onClaim(lead.id); }}
       disabled={inFlight}
-      className="px-3 py-1 text-xs font-medium rounded-full border border-indigo-300 text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors disabled:opacity-50">
+      className="px-3 py-1 text-xs font-medium rounded-full border border-[#F7C6C2] text-[#CE4D47] hover:bg-[#FBEBE8] active:bg-[#FDE8E7] transition-colors disabled:opacity-50">
       {inFlight ? "…" : "Claim"}
     </button>
   );
@@ -660,51 +664,76 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
   const analysis = lead.analysis || {};
 
   return (
-    <tr className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => onClick(lead.id)}>
+    <tr className="hover:bg-[#FAF5EF]/60 transition-colors cursor-pointer" onClick={() => onClick(lead.id)}>
       {/* Priority */}
       <td className="px-4 py-3 whitespace-nowrap">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${TAG_STYLES[tag] || TAG_STYLES.Cold}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${TAG_DOT[tag] || TAG_DOT.Cold}`} />
-          {tag}
-        </span>
-        <div className="mt-1 text-xs text-gray-400">{score}/100</div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${TAG_STYLES[tag] || TAG_STYLES.Cold}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${TAG_DOT[tag] || TAG_DOT.Cold}`} />
+            {tag}
+          </span>
+          {Array.isArray(lead.call_log) && lead.call_log.length > 0 && (() => {
+            const latest = lead.call_log[lead.call_log.length - 1];
+            const diff = (latest.score_after ?? 0) - (latest.score_before ?? 0);
+            return (
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                diff > 0
+                  ? "bg-[#EBF7EE] text-[#2E7D32]"
+                  : diff < 0
+                  ? "bg-[#FDE8E7] text-[#C53929]"
+                  : "bg-[#FAF5EF] text-[#6B635B]"
+              }`}>
+                {diff >= 0 ? `+${diff}` : `${diff}`}
+              </span>
+            );
+          })()}
+        </div>
+        <div className="mt-1 text-xs text-[#8C827A]">{score}/100</div>
       </td>
 
       {/* Customer */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-medium text-sm text-gray-900 truncate max-w-[180px]">{lead.name}</span>
+          <span className="font-medium text-sm text-[#1F1A17] truncate max-w-[180px]">{lead.name}</span>
           {lead.call_brief && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FBEBE8] text-[#CE4D47] border border-[#F7C6C2]">
               Brief ready
             </span>
           )}
         </div>
         {lead.phone && (
-          <div className="text-xs text-gray-600 font-mono mt-0.5 truncate max-w-[180px]">📞 {lead.phone}</div>
+          <div className="text-xs text-[#6B635B] font-mono mt-0.5 truncate max-w-[180px]">
+            <span className="text-[#8C827A] font-sans mr-1">Tel:</span>{lead.phone}
+          </div>
         )}
         {lead.email && (
-          <div className="text-xs text-gray-400 truncate max-w-[180px]">✉️ {lead.email}</div>
+          <div className="text-xs text-[#8C827A] truncate max-w-[180px]">
+            <span className="mr-1">Email:</span>{lead.email}
+          </div>
         )}
         {lead.location && (
-          <div className="text-xs text-gray-500 truncate max-w-[180px] mt-0.5">📍 {lead.location}</div>
+          <div className="text-xs text-[#6B635B] truncate max-w-[180px] mt-0.5">
+            <span className="text-[#8C827A] mr-1">Loc:</span>{lead.location}
+          </div>
         )}
         {lead.property_requirement && (
-          <div className="text-xs text-gray-400 truncate max-w-[180px]">🏠 {lead.property_requirement}</div>
+          <div className="text-xs text-[#8C827A] truncate max-w-[180px]">
+            <span className="mr-1">Req:</span>{lead.property_requirement}
+          </div>
         )}
       </td>
 
       {/* Budget & Timeline */}
       <td className="px-4 py-3 whitespace-nowrap">
-        <div className="text-sm text-gray-800">{lead.budget || "—"}</div>
-        <div className="text-xs text-gray-500 mt-0.5">{lead.timeline}</div>
+        <div className="text-sm font-medium text-[#1F1A17]">{lead.budget || "—"}</div>
+        <div className="text-xs text-[#6B635B] mt-0.5">{lead.timeline}</div>
       </td>
 
       {/* AI Summary */}
       <td className="px-4 py-3 max-w-[200px]">
-        <p className="text-sm text-gray-700 line-clamp-2">{analysis.summary || "—"}</p>
+        <p className="text-sm text-[#1F1A17] line-clamp-2">{analysis.summary || "—"}</p>
         {analysis.score_reason && (
-          <p className="text-xs text-gray-400 mt-1 line-clamp-1">{analysis.score_reason}</p>
+          <p className="text-xs text-[#8C827A] mt-1 line-clamp-1">{analysis.score_reason}</p>
         )}
       </td>
 
@@ -712,13 +741,13 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
       <td className="px-4 py-3">
         {analysis.next_action ? (
           <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium max-w-[180px] truncate ${
-            tag === "Hot" ? "bg-red-50 text-red-700" :
-            tag === "Warm" ? "bg-amber-50 text-amber-700" :
-            "bg-blue-50 text-blue-700"
+            tag === "Hot" ? "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]" :
+            tag === "Warm" ? "bg-[#FEF3E2] text-[#B45309] border border-[#FDE3B7]" :
+            "bg-[#F0ECE7] text-[#5C554E] border border-[#E2DBD3]"
           }`} title={analysis.next_action}>
             {analysis.next_action}
           </span>
-        ) : <span className="text-gray-400 text-sm">—</span>}
+        ) : <span className="text-[#8C827A] text-sm">—</span>}
       </td>
 
       {/* Salesperson / Claim */}
@@ -1000,8 +1029,8 @@ export default function HomePage() {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF5EF]">
+        <div className="w-6 h-6 border-2 border-[#CE4D47] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1009,28 +1038,28 @@ export default function HomePage() {
   if (!currentUser) return <SignInScreen onSelect={handleSelectUser} />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#FAF5EF]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-[#EDE5DC] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 bg-[#CE4D47] rounded-lg flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
             </div>
-            <span className="font-semibold text-gray-900 text-sm">Lead Prioritizer</span>
+            <span className="font-semibold text-[#1F1A17] text-sm">Lead Prioritizer</span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={handleSeed} disabled={seeding}
-              className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+              className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50"
               title="Demo only — deletes all leads and inserts 6 seed leads">
               {seeding ? "Seeding…" : "Reset demo data"}
             </button>
-            <span className="text-sm text-gray-500 hidden sm:block">{currentUser}</span>
+            <span className="text-sm text-[#6B635B] hidden sm:block">{currentUser}</span>
             <button onClick={handleSwitchUser}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
+              className="text-xs text-[#CE4D47] hover:text-[#B83E38] font-medium transition-colors">
               Switch user
             </button>
           </div>
@@ -1043,16 +1072,16 @@ export default function HomePage() {
 
         {/* Title + actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h1 className="text-xl font-semibold text-gray-900">Lead dashboard</h1>
+          <h1 className="text-xl font-semibold text-[#1F1A17]">Lead dashboard</h1>
           <div className="flex items-center gap-2">
             {topLead && (
               <button onClick={() => goToLead(topLead.id)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-[#F7C6C2] text-[#CE4D47] hover:bg-[#FBEBE8] transition-colors">
                 Open top lead ↗
               </button>
             )}
             <button onClick={openModal}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 active:bg-indigo-800 transition-colors">
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#CE4D47] text-white text-sm font-medium rounded-xl hover:bg-[#B83E38] active:bg-[#A33530] transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -1063,14 +1092,14 @@ export default function HomePage() {
 
         {/* Claim error banner */}
         {claimError && (
-          <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 flex items-center justify-between">
+          <div className="mb-3 bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl px-4 py-3 text-sm text-[#B45309] flex items-center justify-between">
             {claimError}
-            <button onClick={() => setClaimError(null)} className="text-amber-500 hover:text-amber-700 ml-4">✕</button>
+            <button onClick={() => setClaimError(null)} className="text-[#B45309] hover:text-[#78350F] ml-4">✕</button>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+        <div className="flex items-center gap-1 mb-4 border-b border-[#EDE5DC]">
           {[
             { key: "all", label: "All team leads", count: tabCounts.all },
             { key: "open", label: "Open to claim", count: tabCounts.open },
@@ -1080,14 +1109,13 @@ export default function HomePage() {
             <button key={key} onClick={() => setTab(key)}
               className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
                 tab === key
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-[#CE4D47] text-[#CE4D47]"
+                  : "border-transparent text-[#6B635B] hover:text-[#1F1A17]"
               }`}>
-              {isStats && <span>📊</span>}
               {label}
               {!isStats && (
                 <span className={`text-xs rounded-full px-1.5 py-0.5 ${
-                  tab === key ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-500"
+                  tab === key ? "bg-[#FBEBE8] text-[#CE4D47]" : "bg-[#FAF5EF] text-[#6B635B] border border-[#EDE5DC]"
                 }`}>
                   {count}
                 </span>
@@ -1113,11 +1141,11 @@ export default function HomePage() {
                   <button key={f} onClick={() => setTagFilter(f)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       tagFilter === f
-                        ? f === "all" ? "bg-gray-800 text-white"
-                          : f === "Hot" ? "bg-red-500 text-white"
-                          : f === "Warm" ? "bg-amber-500 text-white"
-                          : "bg-blue-500 text-white"
-                        : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+                        ? f === "all" ? "bg-[#1F1A17] text-white"
+                          : f === "Hot" ? "bg-[#CE4D47] text-white"
+                          : f === "Warm" ? "bg-[#D97706] text-white"
+                          : "bg-[#8C827A] text-white"
+                        : "bg-white border border-[#EDE5DC] text-[#6B635B] hover:bg-[#FAF5EF]"
                     }`}>
                     {f === "all" ? "All" : f}
                     <span className="ml-1 opacity-75">({tagCounts[f] ?? tagCounts["all"]})</span>
@@ -1130,17 +1158,17 @@ export default function HomePage() {
 
               {/* Search */}
               <div className="relative">
-                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8C827A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                 </svg>
                 <input value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search name, location, phone…"
-                  className="pl-8 pr-3 py-1.5 text-sm text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400 w-56" />
+                  className="pl-8 pr-3 py-1.5 text-sm text-[#1F1A17] border border-[#EDE5DC] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#CE4D47] focus:border-transparent placeholder-[#A0988F] w-56 bg-white" />
               </div>
 
               {/* Sort */}
               <select value={sort} onChange={(e) => setSort(e.target.value)}
-                className="text-sm text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                className="text-sm text-[#1F1A17] border border-[#EDE5DC] rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#CE4D47]">
                 <option value="score">Highest score first</option>
                 <option value="newest">Newest first</option>
                 <option value="timeline">Most urgent timeline</option>
@@ -1149,58 +1177,58 @@ export default function HomePage() {
 
         {/* Content area */}
         {leadsLoading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
-            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <div className="flex items-center justify-center py-20 text-[#8C827A] gap-2">
+            <svg className="w-5 h-5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
             Loading leads…
           </div>
         ) : leadsError ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-sm text-red-700">
+          <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-6 text-center text-sm text-[#C53929]">
             {leadsError}
             <button onClick={() => fetchLeads()}
-              className="block mx-auto mt-3 text-xs font-medium text-red-600 hover:underline">
+              className="block mx-auto mt-3 text-xs font-medium text-[#CE4D47] hover:underline">
               Try again
             </button>
           </div>
         ) : leads.length === 0 ? (
           /* No leads at all */
-          <div className="bg-white border border-gray-200 rounded-xl p-16 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white border border-[#EDE5DC] rounded-xl p-16 text-center">
+            <div className="w-12 h-12 bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-[#8C827A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <p className="text-gray-500 font-medium">No leads yet</p>
-            <p className="text-gray-400 text-sm mt-1">Click "New lead" to add your first one.</p>
+            <p className="text-[#1F1A17] font-medium">No leads yet</p>
+            <p className="text-[#8C827A] text-sm mt-1">Click "New lead" to add your first one.</p>
           </div>
         ) : displayed.length === 0 ? (
           /* Leads exist but nothing matches the current filters */
-          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-            <p className="text-gray-500 font-medium">No leads match your filters</p>
-            <p className="text-gray-400 text-sm mt-1">Try adjusting the tab, priority, or search.</p>
+          <div className="bg-white border border-[#EDE5DC] rounded-xl p-12 text-center">
+            <p className="text-[#1F1A17] font-medium">No leads match your filters</p>
+            <p className="text-[#8C827A] text-sm mt-1">Try adjusting the tab, priority, or search.</p>
             <button onClick={() => { setTab("all"); setTagFilter("all"); setSearch(""); }}
-              className="mt-4 text-sm text-indigo-600 font-medium hover:underline">
+              className="mt-4 text-sm text-[#CE4D47] font-medium hover:underline">
               Clear filters
             </button>
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-[#EDE5DC] rounded-xl overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Priority</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Budget / Timeline</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">AI Summary</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Next action</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Salesperson</th>
+                  <tr className="border-b border-[#EDE5DC] bg-[#FAF5EF]">
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-24">Priority</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Customer</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-32">Budget / Timeline</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">AI Summary</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Next action</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-28">Salesperson</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[#EDE5DC]">
                   {displayed.map((lead) => (
                     <LeadRow
                       key={lead.id}
