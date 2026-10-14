@@ -58,13 +58,33 @@ function LeadDetailContent() {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionError, setActionError] = useState(null);
 
+  // Call brief generation state
+  const [generatingBrief, setGeneratingBrief] = useState(false);
+  const [briefError, setBriefError] = useState(null);
+
+  // Call mode full-screen overlay state
+  const [callModeOpen, setCallModeOpen] = useState(false);
+  const [showCallModeObjections, setShowCallModeObjections] = useState(false);
+
   // Copy feedback
   const [copied, setCopied] = useState(false);
+  const [copiedOpening, setCopiedOpening] = useState(false);
 
   const currentUserRef = useRef(currentUser);
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  // Escape key listener for Call Mode overlay
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape" && callModeOpen) {
+        setCallModeOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [callModeOpen]);
 
   // Read identity from localStorage on client mount
   useEffect(() => {
@@ -192,11 +212,43 @@ function LeadDetailContent() {
     }
   }
 
+  // Generate / Regenerate Call Brief action
+  async function handleGenerateBrief() {
+    setGeneratingBrief(true);
+    setBriefError(null);
+    try {
+      const res = await fetch(`/api/leads/${id}/callbrief`, {
+        method: "POST",
+        headers: { "x-user": currentUser },
+      });
+      const payload = await res.json();
+
+      if (!res.ok) {
+        setBriefError(payload.error || `Error generating brief (${res.status})`);
+        return;
+      }
+
+      // Update lead state with new call_brief
+      setLead(payload);
+    } catch (err) {
+      setBriefError("Network error generating call brief: " + err.message);
+    } finally {
+      setGeneratingBrief(false);
+    }
+  }
+
   function handleCopy(text) {
     if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleCopyOpening(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedOpening(true);
+    setTimeout(() => setCopiedOpening(false), 2000);
   }
 
   if (!hydrated || loading) {
@@ -494,7 +546,224 @@ function LeadDetailContent() {
           </div>
         )}
 
-        {/* 5. Two-Column Grid for Cards (Items 7-11) */}
+        {/* 5. Call Brief Section */}
+        {lead.call_brief ? (
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-gray-900">Call Brief</h2>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                    Ready
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Glance at this script while the phone rings
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCallModeOpen(true)}
+                  className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+                >
+                  <span>⚡</span> Start call mode
+                </button>
+              </div>
+            </div>
+
+            {briefError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 flex items-center justify-between">
+                <span>{briefError}</span>
+                <button
+                  onClick={() => setBriefError(null)}
+                  className="font-bold text-red-500 hover:text-red-700 ml-4"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Block 1: Call goal */}
+            <div>
+              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                Call Goal
+              </div>
+              <p className="text-sm font-semibold text-gray-900">
+                {lead.call_brief.call_goal}
+              </p>
+            </div>
+
+            {/* Block 2: Opening line */}
+            <div>
+              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Opening line (first 20 seconds)
+              </div>
+              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-start justify-between gap-4">
+                <p className="text-base sm:text-lg font-medium text-indigo-950 leading-relaxed">
+                  "{lead.call_brief.opening_line}"
+                </p>
+                <button
+                  onClick={() => handleCopyOpening(lead.call_brief.opening_line)}
+                  className="shrink-0 px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg transition-colors"
+                >
+                  {copiedOpening ? "✓ Copied" : "Copy"}
+                </button>
+              </div>
+            </div>
+
+            {/* Block 3: What I already know (recap) */}
+            {Array.isArray(lead.call_brief.recap) && lead.call_brief.recap.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  What I already know (Do not re-ask)
+                </div>
+                <ul className="space-y-1.5">
+                  {lead.call_brief.recap.map((bullet, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="text-indigo-500 font-bold">•</span>
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Block 4: Questions to ask */}
+            {Array.isArray(lead.call_brief.discovery_questions) && (
+              <div>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Questions to ask
+                </div>
+                <div className="space-y-3">
+                  {lead.call_brief.discovery_questions.map((q, idx) => (
+                    <div key={idx} className="bg-gray-50 border border-gray-100 rounded-xl p-3.5">
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {q.question}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Why it matters: {q.why_it_matters}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Block 5: Likely objections */}
+            {Array.isArray(lead.call_brief.objections) && lead.call_brief.objections.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Likely objections & replies
+                </div>
+                <div className="space-y-3">
+                  {lead.call_brief.objections.map((item, idx) => (
+                    <div key={idx} className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5">
+                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <span>⚠️ If customer says:</span>
+                        <span>"{item.objection}"</span>
+                      </div>
+                      <div className="text-sm font-medium text-gray-900 mt-1 pl-4 border-l-2 border-amber-400">
+                        {item.response}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Block 6: Closing ask */}
+            {lead.call_brief.closing_ask && (
+              <div>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  Closing ask (Before hanging up)
+                </div>
+                <p className="text-sm font-semibold text-gray-900 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  {lead.call_brief.closing_ask}
+                </p>
+              </div>
+            )}
+
+            {/* Block 7: Avoid */}
+            {Array.isArray(lead.call_brief.avoid) && lead.call_brief.avoid.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-red-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <span>⛔</span> Things to avoid on this call
+                </div>
+                <ul className="space-y-1.5">
+                  {lead.call_brief.avoid.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs font-medium text-red-800 bg-red-50 p-2 rounded-lg border border-red-100">
+                      <span>•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Brief Footer: Generated info + Regenerate */}
+            <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-400">
+              <span>
+                Generated by {lead.call_brief.generated_by || "Salesperson"}
+                {lead.call_brief.generated_at
+                  ? ` at ${new Date(lead.call_brief.generated_at).toLocaleString()}`
+                  : ""}
+              </span>
+
+              <button
+                onClick={handleGenerateBrief}
+                disabled={generatingBrief}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 transition-colors"
+              >
+                {generatingBrief ? "Regenerating brief…" : "↻ Regenerate brief"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* No brief yet state */
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Call Brief</h2>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Get an opening line, three questions and objection replies for this call.
+              </p>
+              {briefError && (
+                <p className="text-xs text-red-600 mt-2 font-medium">
+                  {briefError}
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={handleGenerateBrief}
+              disabled={generatingBrief}
+              className="shrink-0 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {generatingBrief ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Preparing your brief…
+                </>
+              ) : briefError ? (
+                "Retry generation"
+              ) : (
+                "Generate call brief"
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* 6. Two-Column Grid for Cards (Items 7-11) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Item 7: Customer Information */}
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs">
@@ -675,6 +944,127 @@ function LeadDetailContent() {
           </div>
         )}
       </main>
+
+      {/* Call Mode Full-screen Overlay */}
+      {callModeOpen && lead.call_brief && (
+        <div className="fixed inset-0 z-50 bg-gray-950 text-white overflow-y-auto p-4 sm:p-8 flex flex-col justify-between animate-in fade-in duration-200">
+          <div className="max-w-3xl mx-auto w-full space-y-6">
+            {/* Header bar */}
+            <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+              <div>
+                <div className="text-xs uppercase font-bold tracking-wider text-indigo-400">
+                  Call Mode
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
+                  {lead.name}
+                </h1>
+                {lead.phone && (
+                  <a
+                    href={`tel:${lead.phone}`}
+                    className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold text-green-400 hover:text-green-300 font-mono mt-1 underline"
+                  >
+                    <span>📞</span> Tap to call: {lead.phone}
+                  </a>
+                )}
+              </div>
+
+              <button
+                onClick={() => setCallModeOpen(false)}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold rounded-xl border border-gray-700 transition-colors"
+              >
+                ✕ Close (Esc)
+              </button>
+            </div>
+
+            {/* Call Goal */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Goal
+              </div>
+              <p className="text-base sm:text-lg font-bold text-indigo-300">
+                {lead.call_brief.call_goal}
+              </p>
+            </div>
+
+            {/* Opening Line */}
+            <div className="bg-indigo-950/70 border border-indigo-700/60 rounded-2xl p-5 sm:p-6 shadow-md">
+              <div className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">
+                Opening Line (First 20s)
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-white leading-relaxed">
+                "{lead.call_brief.opening_line}"
+              </p>
+            </div>
+
+            {/* 3 Discovery Questions */}
+            {Array.isArray(lead.call_brief.discovery_questions) && (
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Discovery Questions
+                </div>
+                <div className="space-y-3">
+                  {lead.call_brief.discovery_questions.map((q, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-start gap-3"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-indigo-900 text-indigo-200 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <p className="text-base sm:text-lg font-semibold text-gray-100">
+                        {q.question}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Closing Ask */}
+            {lead.call_brief.closing_ask && (
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Closing Ask
+                </div>
+                <p className="text-base sm:text-lg font-bold text-amber-300">
+                  {lead.call_brief.closing_ask}
+                </p>
+              </div>
+            )}
+
+            {/* Toggle Objections */}
+            {Array.isArray(lead.call_brief.objections) && lead.call_brief.objections.length > 0 && (
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowCallModeObjections((prev) => !prev)}
+                  className="px-4 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-semibold rounded-xl text-gray-300 flex items-center gap-2 transition-colors"
+                >
+                  <span>{showCallModeObjections ? "▼" : "▶"}</span>
+                  {showCallModeObjections ? "Hide Objections" : "Show Objections"}
+                </button>
+
+                {showCallModeObjections && (
+                  <div className="mt-3 space-y-3">
+                    {lead.call_brief.objections.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-gray-900/90 border border-amber-900/60 rounded-xl p-4"
+                      >
+                        <div className="text-xs font-bold text-amber-400 mb-1">
+                          ⚠️ "{item.objection}"
+                        </div>
+                        <div className="text-sm sm:text-base font-medium text-gray-200 pl-3 border-l-2 border-amber-500">
+                          {item.response}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

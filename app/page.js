@@ -313,7 +313,14 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
 
       {/* Customer */}
       <td className="px-4 py-3">
-        <div className="font-medium text-sm text-gray-900 truncate max-w-[180px]">{lead.name}</div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-medium text-sm text-gray-900 truncate max-w-[180px]">{lead.name}</span>
+          {lead.call_brief && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+              Brief ready
+            </span>
+          )}
+        </div>
         {lead.phone && (
           <div className="text-xs text-gray-600 font-mono mt-0.5 truncate max-w-[180px]">📞 {lead.phone}</div>
         )}
