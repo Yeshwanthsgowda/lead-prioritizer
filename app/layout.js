@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Lead Prioritizer",
+  title: "Leed Lens",
   description:
     "AI-powered real-estate lead prioritizer for a two-person sales team. Demo identity — not a security mechanism.",
 };

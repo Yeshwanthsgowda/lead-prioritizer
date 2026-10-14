@@ -89,6 +89,7 @@ function LeadDetailContent() {
   // Copy feedback
   const [copied, setCopied] = useState(false);
   const [copiedOpening, setCopiedOpening] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const currentUserRef = useRef(currentUser);
   useEffect(() => {
@@ -244,6 +245,32 @@ function LeadDetailContent() {
       setActionError("Release failed: " + err.message);
     } finally {
       setActionInProgress(false);
+    }
+  }
+
+  // Delete lead action
+  async function handleDeleteLead() {
+    if (!window.confirm("Are you sure you want to delete this lead? This action cannot be undone.")) {
+      return;
+    }
+    setDeleting(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/leads/${id}`, {
+        method: "DELETE",
+        headers: { "x-user": currentUser },
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        setActionError(payload.error || `Failed to delete lead (${res.status})`);
+        setDeleting(false);
+        return;
+      }
+      // Redirect back to dashboard upon successful deletion
+      router.push("/");
+    } catch (err) {
+      setActionError("Delete failed: " + err.message);
+      setDeleting(false);
     }
   }
 
@@ -528,7 +555,26 @@ function LeadDetailContent() {
           >
             ← Back to dashboard
           </Link>
-          <span className="text-xs text-[#8C827A]">Viewing as {currentUser}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[#8C827A]">Viewing as {currentUser}</span>
+            <button
+              onClick={handleDeleteLead}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-[#C53929] hover:text-white bg-[#FDE8E7] hover:bg-[#C53929] border border-[#F7C6C2] rounded-xl transition-colors disabled:opacity-50"
+              title="Delete this lead"
+            >
+              {deleting ? (
+                <>Deleting…</>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Lead
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -73,15 +73,15 @@ function SignInScreen({ onSelect }) {
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-[#1F1A17] mb-1">Lead Prioritizer</h1>
+        <h1 className="text-xl font-semibold text-[#1F1A17] mb-1">Leed Lens</h1>
         <p className="text-sm text-[#6B635B] mb-8">Continue as one of the team members</p>
         <div className="space-y-3">
           <button onClick={() => onSelect("Salesperson A")}
-            className="w-full py-3 px-4 bg-[#CE4D47] text-white rounded-xl font-medium hover:bg-[#B83E38] active:bg-[#A33530] transition-colors">
+            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#CE4D47] hover:text-white hover:border-[#CE4D47] active:bg-[#B83E38] transition-all duration-200">
             Continue as Salesperson A
           </button>
           <button onClick={() => onSelect("Salesperson B")}
-            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#FAF5EF] active:bg-[#F2ECE4] transition-colors">
+            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#CE4D47] hover:text-white hover:border-[#CE4D47] active:bg-[#B83E38] transition-all duration-200">
             Continue as Salesperson B
           </button>
         </div>
@@ -1049,7 +1049,7 @@ export default function HomePage() {
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
             </div>
-            <span className="font-semibold text-[#1F1A17] text-sm">Lead Prioritizer</span>
+            <span className="font-semibold text-[#1F1A17] text-sm">Leed Lens</span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={handleSeed} disabled={seeding}

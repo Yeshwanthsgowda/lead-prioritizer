@@ -35,3 +35,30 @@ export async function GET(request, context) {
 
   return NextResponse.json(data);
 }
+
+// DELETE handler to delete a lead by ID.
+// Either salesperson can delete demo leads if needed.
+export async function DELETE(request, context) {
+  const user = request.headers.get("x-user");
+  if (!user || !ALLOWED_USERS.includes(user)) {
+    return NextResponse.json(
+      { error: "x-user header must be 'Salesperson A' or 'Salesperson B'." },
+      { status: 401 }
+    );
+  }
+
+  const { id } = await Promise.resolve(context.params);
+
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Supabase error deleting lead:", error);
+    return NextResponse.json({ error: "Failed to delete lead" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, id }, { status: 200 });
+}
+
