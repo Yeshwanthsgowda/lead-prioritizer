@@ -66,6 +66,19 @@ function LeadDetailContent() {
   const [callModeOpen, setCallModeOpen] = useState(false);
   const [showCallModeObjections, setShowCallModeObjections] = useState(false);
 
+  // Chat panel state
+  const [chatInput, setChatInput] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatError, setChatError] = useState(null);
+  const [copiedChatIndex, setCopiedChatIndex] = useState(null);
+
+  // Optimistic pending user message while waiting for AI coach
+  const [pendingUserMessage, setPendingUserMessage] = useState(null);
+
+  // Ref tracking if a chat message is actively being sent
+  const chatSendingRef = useRef(false);
+  const chatScrollRef = useRef(null);
+
   // Copy feedback
   const [copied, setCopied] = useState(false);
   const [copiedOpening, setCopiedOpening] = useState(false);
@@ -123,11 +136,17 @@ function LeadDetailContent() {
       setNotFound(false);
       setFetchError(null);
 
-      // Only update state if JSON changed to prevent UI re-renders/flickers
+      // Only update state if JSON changed to prevent UI re-renders/flickers.
+      // If a chat message is currently in-flight, do not overwrite the chat array.
       setLead((prev) => {
+        if (!prev) return data;
+        let incoming = data;
+        if (chatSendingRef.current) {
+          incoming = { ...data, chat: prev.chat };
+        }
         const prevStr = JSON.stringify(prev);
-        const newStr = JSON.stringify(data);
-        return prevStr === newStr ? prev : data;
+        const newStr = JSON.stringify(incoming);
+        return prevStr === newStr ? prev : incoming;
       });
     } catch (err) {
       if (!silent) {
@@ -157,6 +176,15 @@ function LeadDetailContent() {
 
     return () => clearInterval(intervalId);
   }, [currentUser, id, fetchLead]);
+
+  // Helper to scroll chat container to bottom
+  function scrollChatToBottom() {
+    requestAnimationFrame(() => {
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    });
+  }
 
   // Claim action
   async function handleClaim() {
@@ -235,6 +263,89 @@ function LeadDetailContent() {
     } finally {
       setGeneratingBrief(false);
     }
+  }
+
+  // Send message to AI Sales Coach
+  async function handleSendChat(customMessage) {
+    const textToSend = typeof customMessage === "string" ? customMessage : chatInput;
+    if (!textToSend || !textToSend.trim() || sendingChat) return;
+
+    const trimmed = textToSend.trim();
+    setChatError(null);
+    setChatInput("");
+    setSendingChat(true);
+    chatSendingRef.current = true;
+
+    // Optimistic UI: display user message immediately
+    const optimisticMessage = {
+      role: "user",
+      content: trimmed,
+      author: currentUser,
+      at: new Date().toISOString(),
+    };
+    setPendingUserMessage(optimisticMessage);
+    scrollChatToBottom();
+
+    try {
+      const res = await fetch(`/api/leads/${id}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user": currentUser,
+        },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      const updatedChat = await res.json();
+
+      if (!res.ok) {
+        throw new Error(updatedChat.error || `Server error (${res.status})`);
+      }
+
+      // Update lead chat state with server-confirmed array
+      setLead((prev) => (prev ? { ...prev, chat: updatedChat } : prev));
+      setPendingUserMessage(null);
+      scrollChatToBottom();
+    } catch (err) {
+      // Revert optimistic message and restore text to input
+      setPendingUserMessage(null);
+      setChatInput(trimmed);
+      setChatError(`Failed to send message: ${err.message}`);
+    } finally {
+      setSendingChat(false);
+      chatSendingRef.current = false;
+    }
+  }
+
+  // Clear Chat History
+  async function handleClearChat() {
+    if (!confirm("Clear the chat history for this lead?")) return;
+
+    try {
+      const res = await fetch(`/api/leads/${id}/chat`, {
+        method: "DELETE",
+        headers: { "x-user": currentUser },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || "Failed to clear chat.");
+        return;
+      }
+
+      setLead((prev) => (prev ? { ...prev, chat: [] } : prev));
+      setPendingUserMessage(null);
+      setChatError(null);
+    } catch (err) {
+      alert("Error clearing chat: " + err.message);
+    }
+  }
+
+  function handleCopyChatMessage(text, index) {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedChatIndex(index);
+    setTimeout(() => setCopiedChatIndex(null), 2000);
   }
 
   function handleCopy(text) {
@@ -763,7 +874,172 @@ function LeadDetailContent() {
           </div>
         )}
 
-        {/* 6. Two-Column Grid for Cards (Items 7-11) */}
+        {/* 6. Ask AI Sales Coach Chat Panel */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">
+                Ask AI about {lead.name ? lead.name.trim().split(/\s+/)[0] : "Lead"}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Answers use this lead's details, analysis and call brief.
+              </p>
+            </div>
+
+            {Array.isArray(lead.chat) && lead.chat.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                className="text-xs text-gray-400 hover:text-red-600 font-medium transition-colors"
+              >
+                Clear chat
+              </button>
+            )}
+          </div>
+
+          {/* Messages scroll box */}
+          <div
+            ref={chatScrollRef}
+            className="h-[340px] sm:h-[420px] overflow-y-auto space-y-3.5 pr-1 border border-gray-100 bg-gray-50/60 rounded-xl p-4"
+          >
+            {(!lead.chat || lead.chat.length === 0) && !pendingUserMessage ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+                <span className="text-2xl mb-1.5">💬</span>
+                <p className="text-sm font-medium text-gray-600">No messages yet</p>
+                <p className="text-xs text-gray-400 max-w-xs mt-1">
+                  Ask strategy advice, request script adjustments, or click one of the suggested questions below.
+                </p>
+              </div>
+            ) : (
+              <>
+                {(lead.chat || []).map((msg, idx) => {
+                  const isUser = msg.role === "user";
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                    >
+                      {isUser && msg.author && (
+                        <span className="text-[10px] text-gray-400 mb-0.5 mr-1 font-medium">
+                          {msg.author}
+                        </span>
+                      )}
+                      <div
+                        className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                          isUser
+                            ? "bg-indigo-600 text-white rounded-br-xs"
+                            : "bg-white border border-gray-200 text-gray-800 rounded-bl-xs shadow-2xs"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+
+                      {!isUser && (
+                        <button
+                          onClick={() => handleCopyChatMessage(msg.content, idx)}
+                          className="mt-1 ml-1 text-[11px] text-gray-400 hover:text-indigo-600 font-medium transition-colors flex items-center gap-1"
+                        >
+                          {copiedChatIndex === idx ? "✓ Copied" : "Copy"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Optimistic pending user message */}
+                {pendingUserMessage && (
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-gray-400 mb-0.5 mr-1 font-medium">
+                      {pendingUserMessage.author}
+                    </span>
+                    <div className="max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap bg-indigo-600 text-white rounded-br-xs opacity-90">
+                      {pendingUserMessage.content}
+                    </div>
+                  </div>
+                )}
+
+                {/* Thinking bubble */}
+                {sendingChat && (
+                  <div className="flex flex-col items-start">
+                    <div className="bg-white border border-gray-200 text-gray-500 rounded-2xl rounded-bl-xs p-3 text-xs flex items-center gap-2 shadow-2xs">
+                      <svg className="w-3.5 h-3.5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Thinking…
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Chat error notification */}
+          {chatError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3 flex items-center justify-between">
+              <span>{chatError}</span>
+              <button
+                onClick={() => handleSendChat(chatInput)}
+                className="font-bold underline ml-3"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Suggested question chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              "What should I emphasize on the call?",
+              "Make my reply more assertive",
+              `Why is this lead ${tag}?`,
+              "What could stop this deal?",
+              "Give me a 30-second call script",
+            ].map((chip) => (
+              <button
+                key={chip}
+                onClick={() => handleSendChat(chip)}
+                disabled={sendingChat}
+                className="shrink-0 px-3 py-1 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 border border-gray-200 rounded-full text-xs text-gray-600 transition-colors disabled:opacity-50"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+
+          {/* Input & Send area */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendChat();
+            }}
+            className="flex items-end gap-2"
+          >
+            <textarea
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendChat();
+                }
+              }}
+              disabled={sendingChat}
+              rows={2}
+              placeholder="Ask anything about this lead (Enter to send, Shift+Enter for newline)…"
+              className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400 resize-none disabled:opacity-60 bg-white"
+            />
+
+            <button
+              type="submit"
+              disabled={!chatInput.trim() || sendingChat}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed h-[42px] flex items-center justify-center shrink-0"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+
+        {/* 7. Two-Column Grid for Cards (Items 7-11) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Item 7: Customer Information */}
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xs">
