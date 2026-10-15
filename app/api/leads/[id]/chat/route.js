@@ -5,25 +5,23 @@
 //
 // WHY history comes from the database (and not client payload):
 // 1. Context integrity: The browser cannot tamper with or fabricate past assistant/user messages.
-// 2. Shared context: Both salespeople (A & B) collaborate on the same lead and share the same coaching thread.
+// 2. Shared context: Both salespeople collaborate on the same lead and share the same coaching thread.
 //
 // WHY the model only receives the last 10 messages:
 // 1. Cost & rate limits: Slicing keeps context window predictable and tokens bounded.
 // 2. Focus: Recent back-and-forth contains the immediate conversational objective.
+//
+// WHY team_id scoping: cross-team access returns 404 (same as missing).
 
 import { NextResponse } from "next/server";
 import supabase from "@/lib/supabase";
 import { answerChat } from "@/lib/chat";
-
-const ALLOWED_USERS = ["Salesperson A", "Salesperson B"];
+import { getSession } from "@/lib/auth";
 
 export async function POST(request, context) {
-  const user = request.headers.get("x-user");
-  if (!user || !ALLOWED_USERS.includes(user)) {
-    return NextResponse.json(
-      { error: "x-user header must be 'Salesperson A' or 'Salesperson B'." },
-      { status: 401 }
-    );
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const { id } = await Promise.resolve(context.params);
@@ -48,11 +46,12 @@ export async function POST(request, context) {
     );
   }
 
-  // 1. Fetch current lead
+  // Fetch lead scoped to session's team.
   const { data: lead, error: fetchError } = await supabase
     .from("leads")
     .select("*")
     .eq("id", id)
+    .eq("team_id", session.team_id)
     .single();
 
   if (fetchError || !lead) {
@@ -61,7 +60,7 @@ export async function POST(request, context) {
 
   const existingChat = Array.isArray(lead.chat) ? lead.chat : [];
 
-  // 2. Call AI coach
+  // Call AI coach.
   let replyText = "";
   try {
     replyText = await answerChat(lead, existingChat, trimmedMessage);
@@ -73,11 +72,12 @@ export async function POST(request, context) {
     );
   }
 
-  // 3. Re-read the latest chat from DB to prevent overwriting messages added concurrently
+  // Re-read the latest chat from DB to prevent overwriting messages added concurrently.
   const { data: freshLead } = await supabase
     .from("leads")
     .select("chat")
     .eq("id", id)
+    .eq("team_id", session.team_id)
     .single();
 
   const currentChat = Array.isArray(freshLead?.chat) ? freshLead.chat : existingChat;
@@ -85,7 +85,7 @@ export async function POST(request, context) {
   const userMsg = {
     role: "user",
     content: trimmedMessage,
-    author: user,
+    author: session.name, // store the human-readable name
     at: new Date().toISOString(),
   };
 
@@ -95,13 +95,14 @@ export async function POST(request, context) {
     at: new Date().toISOString(),
   };
 
-  // Keep only the last 50 messages total in persistent storage
+  // Keep only the last 50 messages total in persistent storage.
   const updatedChat = [...currentChat, userMsg, assistantMsg].slice(-50);
 
   const { error: updateError } = await supabase
     .from("leads")
     .update({ chat: updatedChat })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("team_id", session.team_id);
 
   if (updateError) {
     console.error("Supabase chat update error:", updateError);
@@ -115,12 +116,9 @@ export async function POST(request, context) {
 }
 
 export async function DELETE(request, context) {
-  const user = request.headers.get("x-user");
-  if (!user || !ALLOWED_USERS.includes(user)) {
-    return NextResponse.json(
-      { error: "x-user header must be 'Salesperson A' or 'Salesperson B'." },
-      { status: 401 }
-    );
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const { id } = await Promise.resolve(context.params);
@@ -128,7 +126,8 @@ export async function DELETE(request, context) {
   const { error } = await supabase
     .from("leads")
     .update({ chat: [] })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("team_id", session.team_id);
 
   if (error) {
     console.error("Supabase clear chat error:", error);

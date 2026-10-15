@@ -16,25 +16,25 @@
 // Real-estate deals evolve incrementally. If a call was brief or inconclusive on budget,
 // the prior qualified budget remains intact rather than resetting to 0. Moving scores only
 // with evidence ensures stability while allowing downward adjustments when blockers arise.
+//
+// WHY claimed_by is compared to session.sub (UUID):
+// The UUID is the stable identity. A name string could theoretically be edited;
+// UUIDs are immutable and guaranteed unique by the database.
 
 import { NextResponse } from "next/server";
 import supabase from "@/lib/supabase";
 import { processCall } from "@/lib/postcall";
-
-const ALLOWED_USERS = ["Salesperson A", "Salesperson B"];
+import { getSession } from "@/lib/auth";
 
 export async function POST(request, context) {
-  const user = request.headers.get("x-user");
-  if (!user || !ALLOWED_USERS.includes(user)) {
-    return NextResponse.json(
-      { error: "x-user header must be 'Salesperson A' or 'Salesperson B'." },
-      { status: 401 }
-    );
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
   const { id } = await Promise.resolve(context.params);
 
-  // Validate request body
+  // Validate request body.
   let body;
   try {
     body = await request.json();
@@ -50,18 +50,18 @@ export async function POST(request, context) {
     );
   }
 
-  // Retrieve existing lead from database
+  // Retrieve existing lead scoped to session's team.
   const { data: lead, error: fetchError } = await supabase
     .from("leads")
     .select("*")
     .eq("id", id)
+    .eq("team_id", session.team_id)
     .single();
 
   if (fetchError || !lead) {
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
 
-  // Lead must have existing analysis to be updated
   if (!lead.analysis) {
     return NextResponse.json(
       { error: "Lead must have an initial analysis before logging a call." },
@@ -69,21 +69,21 @@ export async function POST(request, context) {
     );
   }
 
-  // Ownership verification: only the salesperson who claimed this lead can log calls
-  if (lead.claimed_by !== user) {
+  // Ownership verification: only the salesperson who claimed this lead can log calls.
+  if (lead.claimed_by !== session.sub) {
     return NextResponse.json(
       { error: "Claim this lead to log a call" },
       { status: 403 }
     );
   }
 
-  // Run AI post-call evaluation
+  // Run AI post-call evaluation.
   let callResult;
   try {
     callResult = await processCall(lead, notes);
   } catch (err) {
     console.error("processCall failed:", err);
-    // On AI failure, return 502 with clear message and save nothing
+    // On AI failure, return 502 with clear message and save nothing.
     return NextResponse.json(
       { error: `Post-call re-scoring failed: ${err.message}` },
       { status: 502 }
@@ -94,10 +94,12 @@ export async function POST(request, context) {
   const scoreBefore = lead.score ?? 0;
   const tagBefore = lead.tag || "Cold";
 
-  // Build single call_log entry
+  // Build single call_log entry. Store both the display name (for reading) and
+  // the user ID (for future ownership checks).
   const newCallLogEntry = {
     at: now,
-    by: user,
+    by: session.name,       // human-readable name for display
+    by_id: session.sub,     // UUID for programmatic ownership checks
     notes,
     summary: callResult.call_summary,
     score_before: scoreBefore,
@@ -109,7 +111,7 @@ export async function POST(request, context) {
     questions_still_open: callResult.questions_still_open,
   };
 
-  // Keep last 20 call log entries
+  // Keep last 20 call log entries.
   const currentLog = Array.isArray(lead.call_log) ? lead.call_log : [];
   const updatedCallLog = [...currentLog, newCallLogEntry].slice(-20);
 
@@ -125,7 +127,7 @@ export async function POST(request, context) {
     suggested_response: callResult.suggested_response,
   };
 
-  // Prepare database updates
+  // Prepare database updates.
   const updates = {
     analysis: mergedAnalysis,
     score: callResult.score,
@@ -133,7 +135,7 @@ export async function POST(request, context) {
     call_log: updatedCallLog,
   };
 
-  // Conditionally update timeline and budget if explicit valid updates were returned
+  // Conditionally update timeline and budget if explicit valid updates were returned.
   if (callResult.updated_timeline) {
     updates.timeline = callResult.updated_timeline;
   }
@@ -141,7 +143,7 @@ export async function POST(request, context) {
     updates.budget = callResult.updated_budget;
   }
 
-  // If call_brief exists, flag it as stale without automatically regenerating it
+  // If call_brief exists, flag it as stale without automatically regenerating it.
   if (lead.call_brief) {
     const callDateStr = new Date(now).toLocaleDateString("en-IN", {
       month: "short",
@@ -154,11 +156,12 @@ export async function POST(request, context) {
     };
   }
 
-  // Persist all updates to Supabase in one write
+  // Persist all updates to Supabase in one write.
   const { data: updatedLead, error: updateError } = await supabase
     .from("leads")
     .update(updates)
     .eq("id", id)
+    .eq("team_id", session.team_id)
     .select()
     .single();
 

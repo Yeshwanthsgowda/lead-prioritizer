@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiFetch, getToken, clearToken } from "@/lib/client-api";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -46,8 +47,11 @@ function LeadDetailContent() {
   const id = params?.id;
   const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null); // { id, name, ... } from JWT me endpoint
   const [hydrated, setHydrated] = useState(false);
+
+  // currentUser alias for backward compatibility within this component
+  const currentUser = user?.id || null;
 
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -107,28 +111,44 @@ function LeadDetailContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [callModeOpen]);
 
-  // Read identity from localStorage on client mount
+  // Load identity from JWT on mount. If no token, redirect to /login.
   useEffect(() => {
-    const stored = localStorage.getItem("currentUser");
-    if (!stored) {
-      router.replace("/");
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
       return;
     }
-    setCurrentUser(stored);
-    setHydrated(true);
+    // Verify token and hydrate user state.
+    fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (!res.ok) {
+          clearToken();
+          router.replace("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user);
+          setHydrated(true);
+        }
+      })
+      .catch(() => {
+        clearToken();
+        router.replace("/login");
+      });
   }, [router]);
 
   // Lead fetcher supporting initial load and silent polling
   const fetchLead = useCallback(async ({ silent = false } = {}) => {
-    const user = currentUserRef.current;
-    if (!user || !id) return;
+    if (!id) return;
 
     if (!silent) setLoading(true);
 
     try {
-      const res = await fetch(`/api/leads/${id}`, {
-        headers: { "x-user": user },
-      });
+      const res = await apiFetch(`/api/leads/${id}`);
+
 
       if (res.status === 404) {
         setNotFound(true);
@@ -166,16 +186,16 @@ function LeadDetailContent() {
     }
   }, [id]);
 
-  // Initial fetch when identity is ready
+  // Initial fetch when identity is ready (hydrated = JWT verified, user loaded)
   useEffect(() => {
-    if (currentUser && id) {
+    if (hydrated && id) {
       fetchLead();
     }
-  }, [currentUser, id, fetchLead]);
+  }, [hydrated, id, fetchLead]);
 
   // 4-second polling to keep claim status and lead details in sync
   useEffect(() => {
-    if (!currentUser || !id) return;
+    if (!hydrated || !id) return;
 
     const intervalId = setInterval(() => {
       if (document.hidden) return; // Skip if tab is inactive
@@ -183,7 +203,7 @@ function LeadDetailContent() {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
-  }, [currentUser, id, fetchLead]);
+  }, [hydrated, id, fetchLead]);
 
   // Helper to scroll chat container to bottom
   function scrollChatToBottom() {
@@ -199,9 +219,8 @@ function LeadDetailContent() {
     setActionInProgress(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/claim`, {
+      const res = await apiFetch(`/api/leads/${id}/claim`, {
         method: "POST",
-        headers: { "x-user": currentUser },
       });
       const payload = await res.json();
 
@@ -229,9 +248,8 @@ function LeadDetailContent() {
     setActionInProgress(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/release`, {
+      const res = await apiFetch(`/api/leads/${id}/release`, {
         method: "POST",
-        headers: { "x-user": currentUser },
       });
       const payload = await res.json();
 
@@ -256,9 +274,8 @@ function LeadDetailContent() {
     setDeleting(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/leads/${id}`, {
+      const res = await apiFetch(`/api/leads/${id}`, {
         method: "DELETE",
-        headers: { "x-user": currentUser },
       });
       const payload = await res.json();
       if (!res.ok) {
@@ -279,9 +296,8 @@ function LeadDetailContent() {
     setGeneratingBrief(true);
     setBriefError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/callbrief`, {
+      const res = await apiFetch(`/api/leads/${id}/callbrief`, {
         method: "POST",
-        headers: { "x-user": currentUser },
       });
       const payload = await res.json();
 
@@ -314,18 +330,17 @@ function LeadDetailContent() {
     const optimisticMessage = {
       role: "user",
       content: trimmed,
-      author: currentUser,
+      author: user?.name || "Me",
       at: new Date().toISOString(),
     };
     setPendingUserMessage(optimisticMessage);
     scrollChatToBottom();
 
     try {
-      const res = await fetch(`/api/leads/${id}/chat`, {
+      const res = await apiFetch(`/api/leads/${id}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user": currentUser,
         },
         body: JSON.stringify({ message: trimmed }),
       });
@@ -356,9 +371,8 @@ function LeadDetailContent() {
     if (!confirm("Clear the chat history for this lead?")) return;
 
     try {
-      const res = await fetch(`/api/leads/${id}/chat`, {
+      const res = await apiFetch(`/api/leads/${id}/chat`, {
         method: "DELETE",
-        headers: { "x-user": currentUser },
       });
 
       if (!res.ok) {
@@ -385,11 +399,10 @@ function LeadDetailContent() {
     const notesToSend = postCallNotes.trim();
 
     try {
-      const res = await fetch(`/api/leads/${id}/update`, {
+      const res = await apiFetch(`/api/leads/${id}/update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user": currentUser,
         },
         body: JSON.stringify({ notes: notesToSend }),
       });
@@ -556,7 +569,7 @@ function LeadDetailContent() {
             ← Back to dashboard
           </Link>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-[#8C827A]">Viewing as {currentUser}</span>
+            <span className="text-xs text-[#8C827A]">Viewing as {user?.name || "..."}</span>
             <button
               onClick={handleDeleteLead}
               disabled={deleting}
@@ -630,7 +643,7 @@ function LeadDetailContent() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-[#1F1A17]">
-                    Claimed by {lead.claimed_by}
+                    Claimed by {lead.claimed_by_name || lead.claimed_by}
                   </h3>
                   <p className="text-xs text-[#8C827A]">Currently in progress by another salesperson</p>
                 </div>
@@ -1239,12 +1252,12 @@ function LeadDetailContent() {
               </div>
               <div className="py-2.5 flex justify-between gap-4">
                 <dt className="text-xs font-medium text-[#6B635B]">Added by</dt>
-                <dd className="text-right text-[#1F1A17] font-medium">{lead.created_by || "—"}</dd>
+                <dd className="text-right text-[#1F1A17] font-medium">{lead.created_by_name || lead.created_by || "—"}</dd>
               </div>
               <div className="py-2.5 flex justify-between gap-4">
                 <dt className="text-xs font-medium text-[#6B635B]">Claimed by</dt>
                 <dd className="text-right text-[#1F1A17] font-medium">
-                  {lead.claimed_by || <span className="text-[#8C827A] font-normal">Unclaimed</span>}
+                  {lead.claimed_by_name || lead.claimed_by || <span className="text-[#8C827A] font-normal">Unclaimed</span>}
                 </dd>
               </div>
             </dl>

@@ -1,19 +1,18 @@
 "use client";
 
-// app/page.js — Lead dashboard with polling, tabs, filters, search, sort,
-// insights, claim/release, and navigation.
+// app/page.js — Lead dashboard with JWT auth, polling, tabs, filters, search,
+// sort, analytics, claim/release, and team management.
 //
-// WHY "use client": localStorage (current user), all interactive state
-// (tabs, filters, search, sort, modal, claim/release) and polling live here.
-// Reading localStorage in useEffect avoids a server/client hydration mismatch.
+// WHY "use client": interactive state (tabs, filters, search, sort, modal,
+// claim/release), polling, and client-side auth live here.
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TIMELINE_ORDER } from "@/lib/constants";
+import { apiFetch, useAuth } from "@/lib/client-api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ALLOWED_USERS = ["Salesperson A", "Salesperson B"];
 const POLL_INTERVAL_MS = 4000;
 
 const TAG_STYLES = {
@@ -61,31 +60,191 @@ function applySort(leads, sort) {
   return copy;
 }
 
-// ─── Sign-in screen ───────────────────────────────────────────────────────────
+// ─── Team Panel Modal ─────────────────────────────────────────────────────────
 
-function SignInScreen({ onSelect }) {
+function TeamPanelModal({ onClose, user }) {
+  const [teamInfo, setTeamInfo] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [rotating, setRotating] = useState(false);
+
+  const fetchTeam = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/team");
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const data = await res.json();
+      setTeamInfo(data.team);
+      setMembers(data.members || []);
+    } catch (err) {
+      setError("Failed to load team: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTeam();
+  }, [fetchTeam]);
+
+  async function handleRotateCode() {
+    if (!confirm("Regenerate invite code? The current code will stop working immediately.")) {
+      return;
+    }
+    setRotating(true);
+    try {
+      const res = await apiFetch("/api/team/invite", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || "Failed to rotate invite code.");
+        return;
+      }
+      const data = await res.json();
+      setTeamInfo((prev) => (prev ? { ...prev, invite_code: data.invite_code } : prev));
+    } catch (err) {
+      alert("Error rotating code: " + err.message);
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  function handleCopyCode() {
+    if (!teamInfo?.invite_code) return;
+    navigator.clipboard.writeText(teamInfo.invite_code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  }
+
+  function handleCopyLink() {
+    if (!teamInfo?.invite_code) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    navigator.clipboard.writeText(`${origin}/signup?invite=${teamInfo.invite_code}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAF5EF] px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#EDE5DC] p-8 text-center">
-        <div className="w-12 h-12 bg-[#CE4D47] rounded-xl flex items-center justify-center mx-auto mb-4">
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-        </div>
-        <h1 className="text-xl font-semibold text-[#1F1A17] mb-1">Leed Lens</h1>
-        <p className="text-sm text-[#6B635B] mb-8">Continue as one of the team members</p>
-        <div className="space-y-3">
-          <button onClick={() => onSelect("Salesperson A")}
-            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#CE4D47] hover:text-white hover:border-[#CE4D47] active:bg-[#B83E38] transition-all duration-200">
-            Continue as Salesperson A
-          </button>
-          <button onClick={() => onSelect("Salesperson B")}
-            className="w-full py-3 px-4 bg-white text-[#1F1A17] rounded-xl font-medium border border-[#EDE5DC] hover:bg-[#CE4D47] hover:text-white hover:border-[#CE4D47] active:bg-[#B83E38] transition-all duration-200">
-            Continue as Salesperson B
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-[#EDE5DC]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE5DC]">
+          <h2 className="text-base font-semibold text-[#1F1A17]">Team Settings</h2>
+          <button onClick={onClose} className="text-[#8C827A] hover:text-[#1F1A17] transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-        <p className="mt-6 text-xs text-[#8C827A]">Demo identity only — not a security mechanism.</p>
+
+        {/* Content */}
+        <div className="p-6 space-y-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-sm text-[#8C827A] gap-2">
+              <svg className="w-4 h-4 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Loading team info…
+            </div>
+          ) : error ? (
+            <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-4 text-xs text-[#C53929]">
+              {error}
+            </div>
+          ) : (
+            <>
+              {/* Team Name */}
+              <div>
+                <span className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider block mb-1">
+                  Team Name
+                </span>
+                <p className="text-base font-semibold text-[#1F1A17]">
+                  {teamInfo?.name || "Demo team"}
+                </p>
+              </div>
+
+              {/* Members */}
+              <div>
+                <span className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider block mb-2">
+                  Team Members ({members.length})
+                </span>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {members.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between text-xs py-2 px-3 bg-[#FAF5EF] rounded-xl border border-[#EDE5DC]"
+                    >
+                      <div className="font-medium text-[#1F1A17] flex items-center gap-1.5">
+                        <span>{m.name}</span>
+                        {m.id === user?.id && (
+                          <span className="text-[10px] text-[#8C827A]">(You)</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-white text-[#6B635B] border border-[#EDE5DC]">
+                        {m.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Invite Code or Demo Message */}
+              {teamInfo?.is_demo ? (
+                <div className="p-3.5 bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl text-xs text-[#B45309] leading-relaxed">
+                  This is the demo team. Sign up to create a private team for your real leads.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold text-[#8C827A] uppercase tracking-wider block">
+                    Invite Code
+                  </span>
+                  <div className="p-3 bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl flex items-center justify-between">
+                    <span className="font-mono text-base font-bold tracking-widest text-[#1F1A17]">
+                      {teamInfo?.invite_code || "—"}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={handleCopyCode}
+                        className="px-2.5 py-1 bg-white border border-[#EDE5DC] hover:bg-[#FAF5EF] text-[11px] font-medium rounded-lg text-[#1F1A17] transition-colors"
+                      >
+                        {copiedCode ? "✓ Copied" : "Copy code"}
+                      </button>
+                      <button
+                        onClick={handleCopyLink}
+                        className="px-2.5 py-1 bg-[#CE4D47] hover:bg-[#B83E38] text-[11px] font-medium rounded-lg text-white transition-colors"
+                      >
+                        {copiedLink ? "✓ Link" : "Copy link"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {user?.role === "owner" && (
+                    <div className="pt-1">
+                      <button
+                        onClick={handleRotateCode}
+                        disabled={rotating}
+                        className="text-xs text-[#8C827A] hover:text-[#CE4D47] underline disabled:opacity-50"
+                      >
+                        {rotating ? "Generating new code…" : "Regenerate code"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="pt-2">
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 px-4 rounded-xl border border-[#EDE5DC] text-xs font-medium text-[#1F1A17] hover:bg-[#FAF5EF] transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -223,10 +382,7 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
 
 // ─── Lead Stats Component (Analytics Views) ───────────────────────────────────
 
-function LeadStatsView({ leads, currentUser, onSelectLead }) {
-  // Chart 1: Priority Matrix (Scatter plot: Intent/Engagement X vs Budget/Fit Y)
-  // X-axis: Engagement (0-25) + Timeline (0-30) scaled to 0-100
-  // Y-axis: Budget (0-25) + Requirement (0-20) scaled to 0-100
+function LeadStatsView({ leads, onSelectLead }) {
   const matrixPoints = leads.map((lead) => {
     const sub = lead.analysis?.sub_scores || {};
     const xRaw = (sub.engagement ?? 0) + (sub.timeline ?? 0); // max 55
@@ -249,8 +405,6 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
 
   const topRightCount = matrixPoints.filter((p) => p.isTopRight).length;
 
-  // Chart 2: Immediate Urgency Tracker (Speed-to-lead aging)
-  // Under 2 Hours (Green), 2-24 Hours (Yellow), Over 24 Hours (Red)
   const now = Date.now();
   let under2h = 0;
   let between2and24h = 0;
@@ -269,7 +423,6 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
   const betweenPct = Math.round((between2and24h / totalAgeCount) * 100);
   const over24hPct = Math.max(0, 100 - under2hPct - betweenPct);
 
-  // Chart 3: Lead Preferences & Inventory Match (Assigned to agent or team)
   const prefCounts = {
     "3-BHK": 0,
     "2-BHK": 0,
@@ -300,48 +453,36 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
 
   const maxPrefCount = Math.max(...Object.values(prefCounts), 1);
 
-  // Chart 4: Cadence & Pipeline Health Funnel
-  // Stage 1: Inbound Leads (Total leads)
-  // Stage 2: Claimed & Assigned (claimed_by is set)
-  // Stage 3: Call Brief Prepared (call_brief is generated)
-  // Stage 4: Call Logged (at least one call_log entry recorded)
   const funnelStages = [
-    { label: "New Inbound Leads", count: leads.length, color: "bg-[#CE4D47]", desc: "Total incoming inquiries" },
-    { label: "Claimed & Owned", count: leads.filter((l) => Boolean(l.claimed_by)).length, color: "bg-[#D97706]", desc: "Assigned to a sales rep" },
-    { label: "Brief Prepared", count: leads.filter((l) => Boolean(l.call_brief)).length, color: "bg-[#8C827A]", desc: "Call script generated" },
-    { label: "Call logged", count: leads.filter((l) => Array.isArray(l.call_log) && l.call_log.length > 0).length, color: "bg-[#2E7D32]", desc: "Completed sales calls recorded" },
+    { label: "New Inbound Leads", count: leads.length, color: "bg-[#CE4D47]" },
+    { label: "Claimed & Owned", count: leads.filter((l) => Boolean(l.claimed_by)).length, color: "bg-[#D97706]" },
+    { label: "Brief Prepared", count: leads.filter((l) => Boolean(l.call_brief)).length, color: "bg-[#8C827A]" },
+    { label: "Call logged", count: leads.filter((l) => Array.isArray(l.call_log) && l.call_log.length > 0).length, color: "bg-[#2E7D32]" },
   ];
 
   return (
     <div className="space-y-6">
-      {/* 2x2 Grid of visual cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Widget 1: The Priority Matrix */}
+        {/* Widget 1: Priority Matrix */}
         <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-[#1F1A17]">
-                1. Priority Matrix (Where to Focus First)
-              </h2>
+              <h2 className="text-base font-bold text-[#1F1A17]">1. Priority Matrix</h2>
               <span className="text-[11px] font-semibold bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2] px-2 py-0.5 rounded-full">
                 {topRightCount} Top Priority
               </span>
             </div>
             <p className="text-xs text-[#6B635B] mb-4">
-              Click any dot in the <strong>Top-Right Quadrant</strong> (High Intent + High Budget) to open the lead immediately.
+              Click any dot in the <strong>Top-Right Quadrant</strong> to open the lead.
             </p>
           </div>
 
-          {/* Scatter Plot Grid */}
           <div className="relative w-full aspect-square max-h-[340px] bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl overflow-hidden p-2 select-none">
-            {/* Quadrant Divider Lines */}
             <div className="absolute inset-x-0 top-1/2 border-b border-dashed border-[#DCD3C7] pointer-events-none" />
             <div className="absolute inset-y-0 left-1/2 border-r border-dashed border-[#DCD3C7] pointer-events-none" />
 
-            {/* Quadrant Labels */}
             <div className="absolute top-2 right-2 text-[10px] font-bold text-[#C53929] bg-[#FDE8E7]/90 border border-[#F7C6C2] px-2 py-0.5 rounded pointer-events-none">
-              High Fit &amp; Urgency (Focus Here)
+              High Fit &amp; Urgency
             </div>
             <div className="absolute top-2 left-2 text-[10px] font-medium text-[#B45309] bg-[#FEF3E2]/90 border border-[#FDE3B7] px-1.5 py-0.5 rounded pointer-events-none">
               High Fit, Low Urgency
@@ -353,7 +494,6 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
               Low Priority
             </div>
 
-            {/* Interactive Dots */}
             {matrixPoints.length === 0 ? (
               <div className="w-full h-full flex items-center justify-center text-xs text-[#8C827A]">
                 No leads available to plot
@@ -375,7 +515,6 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
                     className={`absolute -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full ${dotColor} ring-4 hover:scale-125 transition-transform cursor-pointer shadow-xs z-10 group`}
                     title={`${pt.name} (${pt.tag} - ${pt.score}/100)`}
                   >
-                    {/* Tooltip on hover */}
                     <div className="hidden group-hover:block absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#1F1A17] text-white text-[11px] py-1 px-2.5 rounded-lg shadow-lg z-30 pointer-events-none">
                       <div className="font-bold">{pt.name} · {pt.score}/100</div>
                       <div className="text-[10px] text-[#DCD3C7] truncate max-w-[140px]">{pt.requirement}</div>
@@ -385,7 +524,6 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
               })
             )}
 
-            {/* Axis labels */}
             <div className="absolute bottom-1 right-1/2 translate-x-1/2 text-[9px] uppercase tracking-wider text-[#8C827A] font-semibold pointer-events-none">
               Intent &amp; Urgency →
             </div>
@@ -401,73 +539,46 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
           </div>
         </div>
 
-        {/* Widget 2: Immediate Urgency Tracker (Speed-to-Lead) */}
+        {/* Widget 2: Urgency Tracker */}
         <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-[#1F1A17]">
-                2. Immediate Urgency Tracker
-              </h2>
-              <span
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                  over24h === 0
-                    ? "bg-[#EBF7EE] text-[#2E7D32] border border-[#C8E6C9]"
-                    : "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]"
-                }`}
-              >
+              <h2 className="text-base font-bold text-[#1F1A17]">2. Immediate Urgency Tracker</h2>
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                over24h === 0
+                  ? "bg-[#EBF7EE] text-[#2E7D32] border border-[#C8E6C9]"
+                  : "bg-[#FDE8E7] text-[#C53929] border border-[#F7C6C2]"
+              }`}>
                 {over24h === 0 ? "0 Critical" : `${over24h} Overdue`}
               </span>
             </div>
             <p className="text-xs text-[#6B635B] mb-5">
-              Goal: Keep the <strong>Critical (Over 24h)</strong> band at zero. Contact prospects while their intent is freshest.
+              Contact prospects while their intent is freshest.
             </p>
           </div>
 
-          {/* Stacked Visual Bar + Donut Metric representation */}
           <div className="space-y-4">
-            {/* Visual stacked percentage bar */}
             <div className="w-full h-5 rounded-full overflow-hidden flex bg-[#EDE5DC] shadow-inner">
-              <div
-                style={{ width: `${under2hPct}%` }}
-                className="bg-[#2E7D32] hover:opacity-90 transition-all duration-300"
-                title={`Fresh (< 2 hrs): ${under2h}`}
-              />
-              <div
-                style={{ width: `${betweenPct}%` }}
-                className="bg-[#D97706] hover:opacity-90 transition-all duration-300"
-                title={`Pending (2 - 24 hrs): ${between2and24h}`}
-              />
-              <div
-                style={{ width: `${over24hPct}%` }}
-                className="bg-[#CE4D47] hover:opacity-90 transition-all duration-300"
-                title={`Critical (> 24 hrs): ${over24h}`}
-              />
+              <div style={{ width: `${under2hPct}%` }} className="bg-[#2E7D32]" />
+              <div style={{ width: `${betweenPct}%` }} className="bg-[#D97706]" />
+              <div style={{ width: `${over24hPct}%` }} className="bg-[#CE4D47]" />
             </div>
 
-            {/* Three Time-Band Metric Cards */}
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-[#EBF7EE] border border-[#C8E6C9] rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-[#2E7D32] uppercase tracking-wider">
-                  &lt; 2 Hours
-                </div>
+                <div className="text-[11px] font-semibold text-[#2E7D32] uppercase">&lt; 2 Hours</div>
                 <div className="text-2xl font-black text-[#2E7D32] mt-1">{under2h}</div>
-                <div className="text-[10px] text-[#2E7D32] mt-0.5 font-medium">{under2hPct}% share</div>
+                <div className="text-[10px] text-[#2E7D32] mt-0.5">{under2hPct}%</div>
               </div>
-
               <div className="bg-[#FEF3E2] border border-[#FDE3B7] rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-[#B45309] uppercase tracking-wider">
-                  2 – 24 Hours
-                </div>
+                <div className="text-[11px] font-semibold text-[#B45309] uppercase">2–24 Hours</div>
                 <div className="text-2xl font-black text-[#B45309] mt-1">{between2and24h}</div>
-                <div className="text-[10px] text-[#B45309] mt-0.5 font-medium">{betweenPct}% share</div>
+                <div className="text-[10px] text-[#B45309] mt-0.5">{betweenPct}%</div>
               </div>
-
               <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-3.5 text-center">
-                <div className="text-[11px] font-semibold text-[#C53929] uppercase tracking-wider">
-                  &gt; 24 Hours
-                </div>
+                <div className="text-[11px] font-semibold text-[#C53929] uppercase">&gt; 24 Hours</div>
                 <div className="text-2xl font-black text-[#C53929] mt-1">{over24h}</div>
-                <div className="text-[10px] text-[#C53929] mt-0.5 font-medium">{over24hPct}% critical</div>
+                <div className="text-[10px] text-[#C53929] mt-0.5">{over24hPct}%</div>
               </div>
             </div>
           </div>
@@ -477,21 +588,16 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
           </div>
         </div>
 
-        {/* Widget 3: Lead Preferences & Inventory Match */}
+        {/* Widget 3: Preferences */}
         <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-[#1F1A17]">
-                3. Lead Preferences &amp; Inventory Match
-              </h2>
-              <span className="text-xs text-[#8C827A] font-medium">Inquiry Distribution</span>
+              <h2 className="text-base font-bold text-[#1F1A17]">3. Lead Preferences &amp; Inventory</h2>
+              <span className="text-xs text-[#8C827A]">Inquiry Distribution</span>
             </div>
-            <p className="text-xs text-[#6B635B] mb-4">
-              Identify inventory shortages early. If 3-BHK inquiry volume is high, cross-sell available 2.5-BHK or 4-BHK units.
-            </p>
+            <p className="text-xs text-[#6B635B] mb-4">Identify inventory shortages early.</p>
           </div>
 
-          {/* Horizontal Bar Chart */}
           <div className="space-y-3 my-auto">
             {Object.entries(prefCounts).map(([label, count]) => {
               const pct = Math.round((count / maxPrefCount) * 100);
@@ -505,13 +611,7 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
                     <div
                       style={{ width: `${pct}%` }}
                       className={`h-full rounded-full transition-all duration-300 ${
-                        label.includes("3-BHK")
-                          ? "bg-[#CE4D47]"
-                          : label.includes("2-BHK")
-                          ? "bg-[#D97706]"
-                          : label.includes("Villa")
-                          ? "bg-[#8C827A]"
-                          : "bg-[#2E7D32]"
+                        label.includes("3-BHK") ? "bg-[#CE4D47]" : label.includes("2-BHK") ? "bg-[#D97706]" : "bg-[#8C827A]"
                       }`}
                     />
                   </div>
@@ -521,28 +621,23 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#EDE5DC] text-[11px] text-[#6B635B] flex justify-between">
-            <span>Primary Demand: 3-BHK &amp; 2-BHK Apartments</span>
+            <span>Primary Demand: 3-BHK &amp; 2-BHK</span>
             <span className="font-semibold text-[#CE4D47]">Inventory Sync Active</span>
           </div>
         </div>
 
-        {/* Widget 4: Cadence & Pipeline Health Funnel */}
+        {/* Widget 4: Funnel */}
         <div className="bg-white border border-[#EDE5DC] rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-base font-bold text-[#1F1A17]">
-                4. Cadence &amp; Pipeline Health
-              </h2>
+              <h2 className="text-base font-bold text-[#1F1A17]">4. Pipeline Funnel</h2>
               <span className="text-xs text-[#CE4D47] font-semibold bg-[#FBEBE8] px-2 py-0.5 rounded-full border border-[#F7C6C2]">
                 Conversion Funnel
               </span>
             </div>
-            <p className="text-xs text-[#6B635B] mb-4">
-              Identifies where prospects drop off between receiving a lead and conducting AI-coached outreach.
-            </p>
+            <p className="text-xs text-[#6B635B] mb-4">Identify where prospects drop off.</p>
           </div>
 
-          {/* Visual Funnel Representation */}
           <div className="space-y-2.5 my-auto">
             {funnelStages.map((stage, idx) => {
               const widthPct = leads.length > 0 ? Math.max(25, Math.round((stage.count / leads.length) * 100)) : 100;
@@ -560,10 +655,7 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
                     </span>
                   </div>
                   <div className="w-full bg-[#FAF5EF] border border-[#EDE5DC] h-3 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${widthPct}%` }}
-                      className={`h-full rounded-full transition-all duration-300 ${stage.color}`}
-                    />
+                    <div style={{ width: `${widthPct}%` }} className={`h-full rounded-full transition-all duration-300 ${stage.color}`} />
                   </div>
                 </div>
               );
@@ -571,10 +663,9 @@ function LeadStatsView({ leads, currentUser, onSelectLead }) {
           </div>
 
           <div className="mt-4 p-3 bg-[#FBEBE8] rounded-xl text-xs text-[#1F1A17] border border-[#F7C6C2]">
-            <strong>Pipeline Tip:</strong> Generate a Call Brief for every claimed lead before dialing to increase your connected site-visit rate.
+            <strong>Tip:</strong> Prepare a Call Brief before dialing to increase site-visit rates.
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -615,10 +706,10 @@ function InsightsRow({ leads }) {
 
 // ─── Claim/Release cell ───────────────────────────────────────────────────────
 
-function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
+function ClaimCell({ lead, user, onClaim, onRelease, claimingId }) {
   const inFlight = claimingId === lead.id;
   const claimedBy = lead.claimed_by;
-  const mine = claimedBy === currentUser;
+  const mine = claimedBy === user?.id;
   const theirs = claimedBy && !mine;
 
   if (theirs) {
@@ -627,7 +718,9 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
         <svg className="w-3.5 h-3.5 text-[#8C827A] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
-        <span className="truncate max-w-[100px]">{claimedBy}</span>
+        <span className="truncate max-w-[100px]" title={lead.claimed_by_name || "Claimed"}>
+          {lead.claimed_by_name || "Claimed"}
+        </span>
       </div>
     );
   }
@@ -640,7 +733,7 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
         </span>
         <button onClick={(e) => { e.stopPropagation(); onRelease(lead.id); }}
           disabled={inFlight}
-          className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50">
+          className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50 text-left">
           {inFlight ? "…" : "Release"}
         </button>
       </div>
@@ -658,7 +751,7 @@ function ClaimCell({ lead, currentUser, onClaim, onRelease, claimingId }) {
 
 // ─── Lead table row ───────────────────────────────────────────────────────────
 
-function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick }) {
+function LeadRow({ lead, user, onClaim, onRelease, claimingId, onClick }) {
   const tag = lead.tag || "Cold";
   const score = lead.score ?? 0;
   const analysis = lead.analysis || {};
@@ -706,19 +799,14 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
             <span className="text-[#8C827A] font-sans mr-1">Tel:</span>{lead.phone}
           </div>
         )}
-        {lead.email && (
-          <div className="text-xs text-[#8C827A] truncate max-w-[180px]">
-            <span className="mr-1">Email:</span>{lead.email}
-          </div>
-        )}
         {lead.location && (
           <div className="text-xs text-[#6B635B] truncate max-w-[180px] mt-0.5">
             <span className="text-[#8C827A] mr-1">Loc:</span>{lead.location}
           </div>
         )}
-        {lead.property_requirement && (
-          <div className="text-xs text-[#8C827A] truncate max-w-[180px]">
-            <span className="mr-1">Req:</span>{lead.property_requirement}
+        {lead.created_by_name && (
+          <div className="text-[11px] text-[#8C827A] truncate max-w-[180px] mt-0.5">
+            Added by {lead.created_by_name}
           </div>
         )}
       </td>
@@ -754,7 +842,7 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         <ClaimCell
           lead={lead}
-          currentUser={currentUser}
+          user={user}
           onClaim={onClaim}
           onRelease={onRelease}
           claimingId={claimingId}
@@ -768,9 +856,7 @@ function LeadRow({ lead, currentUser, onClaim, onRelease, claimingId, onClick })
 
 export default function HomePage() {
   const router = useRouter();
-
-  const [currentUser, setCurrentUser] = useState(null);
-  const [hydrated, setHydrated] = useState(false);
+  const { user, team, loading: authLoading, switchDemoUser, logout } = useAuth();
 
   // All leads from the server — never cleared on poll failure.
   const [leads, setLeads] = useState([]);
@@ -778,16 +864,17 @@ export default function HomePage() {
   const [leadsError, setLeadsError] = useState(null);
 
   // UI controls — these must never be reset by polling.
-  const [tab, setTab] = useState("all"); // all | open | mine
+  const [tab, setTab] = useState("all"); // all | open | mine | stats
   const [tagFilter, setTagFilter] = useState("all"); // all | Hot | Warm | Cold
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("score");
 
-  // New lead form
+  // Modals
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [showTeamModal, setShowTeamModal] = useState(false);
 
   // Claim/release
   const [claimingId, setClaimingId] = useState(null);
@@ -796,28 +883,30 @@ export default function HomePage() {
   // Seed
   const [seeding, setSeeding] = useState(false);
 
-  // Ref to latest currentUser so polling closure always has the current value.
-  const currentUserRef = useRef(currentUser);
-  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  // One-time invite banner
+  const [showNewTeamBanner, setShowNewTeamBanner] = useState(false);
+  const [copiedBannerLink, setCopiedBannerLink] = useState(false);
 
-  // Read localStorage once after mount to avoid hydration mismatch.
+  // Check new team banner flag once team is loaded
   useEffect(() => {
-    const stored = localStorage.getItem("currentUser");
-    if (stored) setCurrentUser(stored);
-    setHydrated(true);
-  }, []);
+    if (team?.id) {
+      try {
+        const flag = localStorage.getItem(`lp_new_team_${team.id}`);
+        if (flag === "1") {
+          setShowNewTeamBanner(true);
+        }
+      } catch {}
+    }
+  }, [team?.id]);
 
   // Fetch leads (used for initial load and poll refresh).
-  // On poll failure: silently keep last good data — no error toast, no table clear.
   const fetchLeads = useCallback(async ({ silent = false } = {}) => {
-    const user = currentUserRef.current;
     if (!user) return;
     if (!silent) setLeadsLoading(true);
     try {
-      const res = await fetch("/api/leads", { headers: { "x-user": user } });
+      const res = await apiFetch("/api/leads");
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      // Only replace state when data actually changed — prevents table flicker.
       setLeads((prev) => {
         const prevStr = JSON.stringify(prev);
         const newStr = JSON.stringify(data);
@@ -826,50 +915,33 @@ export default function HomePage() {
       if (!silent) setLeadsError(null);
     } catch (err) {
       if (!silent) setLeadsError("Could not load leads. " + err.message);
-      // Silent poll failure: do nothing — last good data stays in state.
     } finally {
       if (!silent) setLeadsLoading(false);
     }
-  }, []);
+  }, [user]);
 
-  // Initial load when user is set.
+  // Initial load when user is loaded
   useEffect(() => {
-    if (currentUser) fetchLeads();
-  }, [currentUser, fetchLeads]);
+    if (user) fetchLeads();
+  }, [user, fetchLeads]);
 
-  // Polling: every 4 seconds, skip when tab is hidden.
+  // Polling: every 4 seconds, skip when tab is hidden
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user) return;
     const id = setInterval(() => {
-      if (document.hidden) return; // Don't poll when user switched tabs.
+      if (document.hidden) return;
       fetchLeads({ silent: true });
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(id); // Clean up on unmount.
-  }, [currentUser, fetchLeads]);
+    return () => clearInterval(id);
+  }, [user, fetchLeads]);
 
-  // ── User management ──────────────────────────────────────────────────────────
-
-  function handleSelectUser(user) {
-    localStorage.setItem("currentUser", user);
-    setCurrentUser(user);
-  }
-
-  function handleSwitchUser() {
-    localStorage.removeItem("currentUser");
-    setCurrentUser(null);
-    setLeads([]);
-  }
-
-  // ── Seed / reset ─────────────────────────────────────────────────────────────
+  // ── Seed / reset (Demo sessions only) ─────────────────────────────────────────
 
   async function handleSeed() {
     if (!confirm("Reset all demo data? This will delete all current leads and insert 6 seed leads. This may take ~30 seconds.")) return;
     setSeeding(true);
     try {
-      const res = await fetch("/api/seed", {
-        method: "POST",
-        headers: { "x-user": currentUser },
-      });
+      const res = await apiFetch("/api/seed", { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         alert("Seed failed: " + (body.error || res.status));
@@ -901,9 +973,9 @@ export default function HomePage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch("/api/leads", {
+      const res = await apiFetch("/api/leads", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user": currentUser },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       const payload = await res.json();
@@ -928,10 +1000,7 @@ export default function HomePage() {
     setClaimingId(id);
     setClaimError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/claim`, {
-        method: "POST",
-        headers: { "x-user": currentUser },
-      });
+      const res = await apiFetch(`/api/leads/${id}/claim`, { method: "POST" });
       const payload = await res.json();
       if (res.status === 409) {
         setClaimError(`Already claimed by ${payload.claimed_by}`);
@@ -942,7 +1011,6 @@ export default function HomePage() {
         setClaimError(payload.error || `Error ${res.status}`);
         return;
       }
-      // Optimistically update the local row.
       setLeads((prev) => prev.map((l) => (l.id === id ? payload : l)));
     } catch (err) {
       setClaimError("Claim failed: " + err.message);
@@ -955,10 +1023,7 @@ export default function HomePage() {
     setClaimingId(id);
     setClaimError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/release`, {
-        method: "POST",
-        headers: { "x-user": currentUser },
-      });
+      const res = await apiFetch(`/api/leads/${id}/release`, { method: "POST" });
       const payload = await res.json();
       if (!res.ok) {
         setClaimError(payload.error || `Error ${res.status}`);
@@ -972,27 +1037,25 @@ export default function HomePage() {
     }
   }
 
-  // ── Navigation ───────────────────────────────────────────────────────────────
-
   function goToLead(id) {
     router.push(`/leads/${id}`);
   }
 
   // ── Filtering / sorting pipeline ─────────────────────────────────────────────
 
-  // 1. Tab filter.
+  // 1. Tab filter
   const tabFiltered = leads.filter((l) => {
     if (tab === "open") return !l.claimed_by;
-    if (tab === "mine") return l.claimed_by === currentUser;
+    if (tab === "mine") return l.claimed_by === user?.id;
     return true;
   });
 
-  // 2. Tag filter.
+  // 2. Tag filter
   const tagFiltered = tagFilter === "all"
     ? tabFiltered
     : tabFiltered.filter((l) => l.tag === tagFilter);
 
-  // 3. Search (name, location, property_requirement, phone).
+  // 3. Search
   const q = search.trim().toLowerCase();
   const searched = q
     ? tagFiltered.filter((l) =>
@@ -1001,21 +1064,17 @@ export default function HomePage() {
       )
     : tagFiltered;
 
-  // 4. Sort.
+  // 4. Sort
   const displayed = applySort(searched, sort);
-
-  // Top lead in the current filtered view (for "Open top lead" button).
   const topLead = displayed[0];
 
-  // ── Tab counts (based on tag + search, not sort) ──────────────────────────────
-
+  // Tab counts
   const tabCounts = {
     all: leads.length,
     open: leads.filter((l) => !l.claimed_by).length,
-    mine: leads.filter((l) => l.claimed_by === currentUser).length,
+    mine: leads.filter((l) => l.claimed_by === user?.id).length,
   };
 
-  // Tag pill counts reflect current tab + search.
   const tagCounts = {
     all: tabFiltered.filter((l) => q ? [l.name, l.location, l.property_requirement, l.phone].some((f) => f?.toLowerCase().includes(q)) : true).length,
     Hot: tabFiltered.filter((l) => l.tag === "Hot" && (q ? [l.name, l.location, l.property_requirement, l.phone].some((f) => f?.toLowerCase().includes(q)) : true)).length,
@@ -1023,11 +1082,8 @@ export default function HomePage() {
     Cold: tabFiltered.filter((l) => l.tag === "Cold" && (q ? [l.name, l.location, l.property_requirement, l.phone].some((f) => f?.toLowerCase().includes(q)) : true)).length,
   };
 
-  const hasFilters = tab !== "all" || tagFilter !== "all" || q !== "";
-
-  // ── Render gates ─────────────────────────────────────────────────────────────
-
-  if (!hydrated) {
+  // Auth loading gate
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF5EF]">
         <div className="w-6 h-6 border-2 border-[#CE4D47] border-t-transparent rounded-full animate-spin" />
@@ -1035,38 +1091,121 @@ export default function HomePage() {
     );
   }
 
-  if (!currentUser) return <SignInScreen onSelect={handleSelectUser} />;
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-[#FAF5EF]">
       {/* Header */}
       <header className="bg-white border-b border-[#EDE5DC] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-[#CE4D47] rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-[#CE4D47] rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </div>
+              <span className="font-semibold text-[#1F1A17] text-sm">Leed Lens</span>
             </div>
-            <span className="font-semibold text-[#1F1A17] text-sm">Leed Lens</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={handleSeed} disabled={seeding}
-              className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50"
-              title="Demo only — deletes all leads and inserts 6 seed leads">
-              {seeding ? "Seeding…" : "Reset demo data"}
+
+            {/* Team pill */}
+            <button
+              onClick={() => setShowTeamModal(true)}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-[#FAF5EF] hover:bg-[#F0ECE7] border border-[#EDE5DC] text-[#1F1A17] transition-colors flex items-center gap-1.5"
+              title="Team details and invite settings"
+            >
+              <span>{team?.name || "Demo team"}</span>
+              <span className="text-[10px] text-[#8C827A]">▾</span>
             </button>
-            <span className="text-sm text-[#6B635B] hidden sm:block">{currentUser}</span>
-            <button onClick={handleSwitchUser}
-              className="text-xs text-[#CE4D47] hover:text-[#B83E38] font-medium transition-colors">
-              Switch user
+          </div>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-3">
+            {team?.is_demo && (
+              <>
+                <button
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors disabled:opacity-50 hidden md:block"
+                  title="Demo only — deletes all leads and inserts 6 seed leads"
+                >
+                  {seeding ? "Seeding…" : "Reset demo data"}
+                </button>
+
+                <button
+                  onClick={() => switchDemoUser(user.name === "Salesperson A" ? "B" : "A")}
+                  className="text-xs text-[#CE4D47] hover:text-[#B83E38] font-medium transition-colors"
+                >
+                  Switch to {user.name === "Salesperson A" ? "Salesperson B" : "Salesperson A"}
+                </button>
+              </>
+            )}
+
+            {/* User name & role pill */}
+            <div className="flex items-center gap-1.5 hidden sm:flex">
+              <span className="text-sm font-medium text-[#1F1A17]">{user.name}</span>
+              <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded-full bg-[#FAF5EF] text-[#6B635B] border border-[#EDE5DC]">
+                {user.role}
+              </span>
+            </div>
+
+            {/* Log out */}
+            <button
+              onClick={logout}
+              className="text-xs text-[#8C827A] hover:text-[#CE4D47] transition-colors"
+            >
+              Log out
             </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* One-time New Team Invite Banner */}
+        {showNewTeamBanner && team?.invite_code && (
+          <div className="mb-5 bg-[#FBEBE8] border border-[#F7C6C2] rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 text-sm text-[#1F1A17]">
+            <div className="flex items-center gap-3">
+              <span className="text-base">🎉</span>
+              <div>
+                <p className="font-semibold text-sm">Your team is ready!</p>
+                <p className="text-xs text-[#6B635B] mt-0.5">
+                  Share this invite code with your partner to start qualifying leads together:
+                </p>
+              </div>
+              <code className="bg-white px-2.5 py-1 rounded-lg font-mono font-bold text-[#CE4D47] border border-[#F7C6C2] text-sm tracking-wider">
+                {team.invite_code}
+              </code>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const origin = typeof window !== "undefined" ? window.location.origin : "";
+                  navigator.clipboard.writeText(`${origin}/signup?invite=${team.invite_code}`);
+                  setCopiedBannerLink(true);
+                  setTimeout(() => setCopiedBannerLink(false), 2000);
+                }}
+                className="px-3 py-1.5 bg-[#CE4D47] hover:bg-[#B83E38] text-white text-xs font-medium rounded-xl transition-colors"
+              >
+                {copiedBannerLink ? "✓ Link Copied" : "Copy invite link"}
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.setItem(`lp_new_team_${team.id}`, "dismissed");
+                  } catch {}
+                  setShowNewTeamBanner(false);
+                }}
+                className="text-xs text-[#8C827A] hover:text-[#1F1A17] px-2 py-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Insights row */}
         {leads.length > 0 && <InsightsRow leads={leads} />}
 
@@ -1098,7 +1237,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* Navigation Tabs */}
         <div className="flex items-center gap-1 mb-4 border-b border-[#EDE5DC]">
           {[
             { key: "all", label: "All team leads", count: tabCounts.all },
@@ -1128,7 +1267,6 @@ export default function HomePage() {
         {tab === "stats" ? (
           <LeadStatsView
             leads={leads}
-            currentUser={currentUser}
             onSelectLead={goToLead}
           />
         ) : (
@@ -1175,80 +1313,79 @@ export default function HomePage() {
               </select>
             </div>
 
-        {/* Content area */}
-        {leadsLoading ? (
-          <div className="flex items-center justify-center py-20 text-[#8C827A] gap-2">
-            <svg className="w-5 h-5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            Loading leads…
-          </div>
-        ) : leadsError ? (
-          <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-6 text-center text-sm text-[#C53929]">
-            {leadsError}
-            <button onClick={() => fetchLeads()}
-              className="block mx-auto mt-3 text-xs font-medium text-[#CE4D47] hover:underline">
-              Try again
-            </button>
-          </div>
-        ) : leads.length === 0 ? (
-          /* No leads at all */
-          <div className="bg-white border border-[#EDE5DC] rounded-xl p-16 text-center">
-            <div className="w-12 h-12 bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-[#8C827A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <p className="text-[#1F1A17] font-medium">No leads yet</p>
-            <p className="text-[#8C827A] text-sm mt-1">Click "New lead" to add your first one.</p>
-          </div>
-        ) : displayed.length === 0 ? (
-          /* Leads exist but nothing matches the current filters */
-          <div className="bg-white border border-[#EDE5DC] rounded-xl p-12 text-center">
-            <p className="text-[#1F1A17] font-medium">No leads match your filters</p>
-            <p className="text-[#8C827A] text-sm mt-1">Try adjusting the tab, priority, or search.</p>
-            <button onClick={() => { setTab("all"); setTagFilter("all"); setSearch(""); }}
-              className="mt-4 text-sm text-[#CE4D47] font-medium hover:underline">
-              Clear filters
-            </button>
-          </div>
-        ) : (
-          <div className="bg-white border border-[#EDE5DC] rounded-xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-[#EDE5DC] bg-[#FAF5EF]">
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-24">Priority</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Customer</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-32">Budget / Timeline</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">AI Summary</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Next action</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-28">Salesperson</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#EDE5DC]">
-                  {displayed.map((lead) => (
-                    <LeadRow
-                      key={lead.id}
-                      lead={lead}
-                      currentUser={currentUser}
-                      onClaim={handleClaim}
-                      onRelease={handleRelease}
-                      claimingId={claimingId}
-                      onClick={goToLead}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            {/* Content area */}
+            {leadsLoading ? (
+              <div className="flex items-center justify-center py-20 text-[#8C827A] gap-2">
+                <svg className="w-5 h-5 animate-spin text-[#CE4D47]" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading leads…
+              </div>
+            ) : leadsError ? (
+              <div className="bg-[#FDE8E7] border border-[#F7C6C2] rounded-xl p-6 text-center text-sm text-[#C53929]">
+                {leadsError}
+                <button onClick={() => fetchLeads()}
+                  className="block mx-auto mt-3 text-xs font-medium text-[#CE4D47] hover:underline">
+                  Try again
+                </button>
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="bg-white border border-[#EDE5DC] rounded-xl p-16 text-center">
+                <div className="w-12 h-12 bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-[#8C827A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <p className="text-[#1F1A17] font-medium">No leads yet</p>
+                <p className="text-[#8C827A] text-sm mt-1">Click "New lead" to add your first one.</p>
+              </div>
+            ) : displayed.length === 0 ? (
+              <div className="bg-white border border-[#EDE5DC] rounded-xl p-12 text-center">
+                <p className="text-[#1F1A17] font-medium">No leads match your filters</p>
+                <p className="text-[#8C827A] text-sm mt-1">Try adjusting the tab, priority, or search.</p>
+                <button onClick={() => { setTab("all"); setTagFilter("all"); setSearch(""); }}
+                  className="mt-4 text-sm text-[#CE4D47] font-medium hover:underline">
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white border border-[#EDE5DC] rounded-xl overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-[#EDE5DC] bg-[#FAF5EF]">
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-24">Priority</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Customer</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-32">Budget / Timeline</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">AI Summary</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide">Next action</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-[#6B635B] uppercase tracking-wide w-28">Salesperson</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EDE5DC]">
+                      {displayed.map((lead) => (
+                        <LeadRow
+                          key={lead.id}
+                          lead={lead}
+                          user={user}
+                          onClaim={handleClaim}
+                          onRelease={handleRelease}
+                          claimingId={claimingId}
+                          onClick={goToLead}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
-        </>
-      )}
       </main>
 
+      {/* Modals */}
       {showModal && (
         <NewLeadModal
           onClose={closeModal}
@@ -1257,6 +1394,13 @@ export default function HomePage() {
           submitError={submitError}
           formData={formData}
           setFormData={setFormData}
+        />
+      )}
+
+      {showTeamModal && (
+        <TeamPanelModal
+          user={user}
+          onClose={() => setShowTeamModal(false)}
         />
       )}
     </div>

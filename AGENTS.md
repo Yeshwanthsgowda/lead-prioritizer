@@ -5,9 +5,10 @@ Stack: Next.js App Router, plain JavaScript (no TypeScript), Tailwind CSS,
 Groq via groq-sdk, Supabase Postgres. Deployed on Vercel.
 
 ## Hard rules
-- Secrets (GROQ_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY) are read ONLY
+- Secrets (GROQ_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, AUTH_SECRET) are read ONLY
   inside app/api/* routes or server-only files. Never in client components.
-  Never hardcode a key in source. .env.local must stay in .gitignore.
+  AUTH_SECRET must be 32+ characters. Never hardcode a key in source.
+  .env.local must stay in .gitignore.
 - Supabase is accessed ONLY from app/api/* routes with the service key.
   The browser never talks to Supabase directly.
 - All prompts live in lib/prompts.js.
@@ -17,18 +18,22 @@ Groq via groq-sdk, Supabase Postgres. Deployed on Vercel.
 - Validate every model response: required fields present, arrays are arrays,
   numbers are clamped. Retry once on invalid JSON, then return a clear error
   (502). No canned or mock AI responses anywhere.
-- No TypeScript, no extra UI libraries, no ORM. Use @supabase/supabase-js
-  and groq-sdk only, plus Next.js and Tailwind.
+- No TypeScript, no extra UI libraries, no ORM. Use @supabase/supabase-js,
+  groq-sdk, jose, and bcryptjs only, plus Next.js and Tailwind.
 
 ## Identity and team
-- No real auth. The sign-in screen has two buttons: "Salesperson A" and
-  "Salesperson B". The choice is stored client-side and sent with each API
-  request (header x-user). State in the README that this is demo identity,
-  not security.
-- Every lead stores created_by, claimed_by, claimed_at.
-- Claiming must be atomic: UPDATE ... SET claimed_by = me WHERE id = ? AND
-  claimed_by IS NULL, and return 409 "Already claimed" if no row was updated.
-- Releasing only succeeds if claimed_by equals the current user.
+- Real multi-tenant teams: teams table (id, name, is_demo, invite_code) and
+  users table (id, name, email, password_hash, role, team_id, is_demo).
+- Signed HS256 JWTs via jose (12h expiry). Never trust a client-supplied user
+  ID or name. Read identity only from verified sessions.
+- Demo accounts remain supported through the demo login endpoint.
+- Passwords hashed with bcryptjs cost 10.
+- Every lead belongs to a team (leads.team_id). All queries MUST filter by
+  team_id. Leads from other teams return 404 (not 403) to prevent team enumeration.
+- Claiming and releasing use session.sub (user id). Claiming is atomic:
+  UPDATE ... SET claimed_by = session.sub WHERE id = ? AND team_id = ? AND claimed_by IS NULL,
+  and returns 409 "Already claimed" if no row was updated.
+- Releasing only succeeds if claimed_by equals session.sub.
 - The UI polls GET /api/leads every 4 seconds to stay in sync.
   No websockets, no Supabase Realtime.
 
@@ -36,7 +41,7 @@ Groq via groq-sdk, Supabase Postgres. Deployed on Vercel.
 leads table columns: id, created_at, name, phone, email, location, property_requirement,
 budget, timeline, message, analysis (jsonb), call_brief (jsonb),
 chat (jsonb array), call_log (jsonb array), score (int), tag (text),
-created_by, claimed_by, claimed_at.
+created_by, claimed_by, claimed_at, team_id.
 phone is required and email is optional. phone and email are never sent to the model.
 score and tag are real columns because the UI filters and sorts on them.
 
