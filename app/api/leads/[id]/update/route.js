@@ -70,7 +70,7 @@ export async function POST(request, context) {
   }
 
   // Ownership verification: only the salesperson who claimed this lead can log calls.
-  if (lead.claimed_by !== session.sub) {
+  if (lead.claimed_by !== session.sub && lead.claimed_by !== session.name) {
     return NextResponse.json(
       { error: "Claim this lead to log a call" },
       { status: 403 }

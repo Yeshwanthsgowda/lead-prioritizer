@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { TIMELINE_ORDER } from "@/lib/constants";
+import { TIMELINE_ORDER, DEMO_SAMPLE_LEADS } from "@/lib/constants";
 import { apiFetch, useAuth } from "@/lib/client-api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -257,12 +257,34 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
+  function handleFillRandom() {
+    const randomIndex = Math.floor(Math.random() * DEMO_SAMPLE_LEADS.length);
+    handlePickDemo(randomIndex);
+  }
+
+  function handlePickDemo(index) {
+    const sample = DEMO_SAMPLE_LEADS[index];
+    if (!sample) return;
+    setFormData({
+      name: sample.name,
+      phone: sample.phone || `+91 98${Math.floor(10000000 + Math.random() * 90000000)}`,
+      email: sample.email || "",
+      location: sample.location || "",
+      property_requirement: sample.property_requirement || "",
+      budget: sample.budget || "",
+      timeline: sample.timeline || "Within 1 month",
+      message: sample.message || "",
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={!submitting ? onClose : undefined} />
       <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-y-auto max-h-[90vh] border border-[#EDE5DC]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#EDE5DC]">
-          <h2 className="text-base font-semibold text-[#1F1A17]">New lead</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold text-[#1F1A17]">New lead</h2>
+          </div>
           {!submitting && (
             <button onClick={onClose} className="text-[#8C827A] hover:text-[#1F1A17] transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,6 +295,56 @@ function NewLeadModal({ onClose, onSubmit, submitting, submitError, formData, se
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="p-6 space-y-4">
+          {/* Demo fast-fill bar */}
+          <div className="bg-[#FAF5EF] border border-[#EDE5DC] rounded-xl p-3 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <span className="text-xs font-semibold text-[#1F1A17] shrink-0">Demo Fill:</span>
+              <select
+                onChange={(e) => {
+                  if (e.target.value === "") return;
+                  handlePickDemo(parseInt(e.target.value, 10));
+                  e.target.value = "";
+                }}
+                disabled={submitting}
+                defaultValue=""
+                className="w-full text-xs text-[#1F1A17] bg-white border border-[#EDE5DC] rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#CE4D47]"
+              >
+                <option value="" disabled>Choose a sample lead...</option>
+                <optgroup label="🔥 Hot Leads (High Intent & Budget)">
+                  {DEMO_SAMPLE_LEADS.map((l, i) => l.expected === "Hot" && (
+                    <option key={i} value={i}>
+                      {l.name} — {l.property_requirement} ({l.budget})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="⚡ Warm Leads (Exploring / Comparing)">
+                  {DEMO_SAMPLE_LEADS.map((l, i) => l.expected === "Warm" && (
+                    <option key={i} value={i}>
+                      {l.name} — {l.property_requirement || l.location}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="❄️ Cold Leads (Vague / Low Intent)">
+                  {DEMO_SAMPLE_LEADS.map((l, i) => l.expected === "Cold" && (
+                    <option key={i} value={i}>
+                      {l.name} — {l.location || "Just exploring"}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handleFillRandom}
+              disabled={submitting}
+              className="px-3 py-1.5 bg-[#CE4D47] hover:bg-[#B83E38] text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs shrink-0 disabled:opacity-50"
+              title="Pick a random demo lead from the list"
+            >
+              <span>🎲</span>
+              <span>Random Lead</span>
+            </button>
+          </div>
+
           {/* Name */}
           <div>
             <label className="block text-xs font-medium text-[#6B635B] mb-1">
@@ -709,7 +781,7 @@ function InsightsRow({ leads }) {
 function ClaimCell({ lead, user, onClaim, onRelease, claimingId }) {
   const inFlight = claimingId === lead.id;
   const claimedBy = lead.claimed_by;
-  const mine = claimedBy === user?.id;
+  const mine = Boolean(claimedBy && (claimedBy === user?.id || (user?.name && claimedBy === user.name)));
   const theirs = claimedBy && !mine;
 
   if (theirs) {
@@ -1044,9 +1116,11 @@ export default function HomePage() {
   // ── Filtering / sorting pipeline ─────────────────────────────────────────────
 
   // 1. Tab filter
+  const isMine = (l) => Boolean(l.claimed_by && (l.claimed_by === user?.id || (user?.name && l.claimed_by === user.name)));
+
   const tabFiltered = leads.filter((l) => {
     if (tab === "open") return !l.claimed_by;
-    if (tab === "mine") return l.claimed_by === user?.id;
+    if (tab === "mine") return isMine(l);
     return true;
   });
 
@@ -1072,7 +1146,7 @@ export default function HomePage() {
   const tabCounts = {
     all: leads.length,
     open: leads.filter((l) => !l.claimed_by).length,
-    mine: leads.filter((l) => l.claimed_by === user?.id).length,
+    mine: leads.filter(isMine).length,
   };
 
   const tagCounts = {

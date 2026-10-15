@@ -538,8 +538,12 @@ function LeadDetailContent() {
   const tag = lead.tag || "Cold";
   const score = lead.score ?? 0;
 
-  // Claim logic state
-  const isClaimedByMe = lead.claimed_by === currentUser;
+  // Claim logic state — matches both UUID and legacy name
+  const isClaimedByMe = Boolean(
+    lead.claimed_by &&
+      (lead.claimed_by === currentUser ||
+        (user?.name && lead.claimed_by === user.name))
+  );
   const isClaimedByOther = lead.claimed_by && !isClaimedByMe;
   const isUnclaimed = !lead.claimed_by;
 

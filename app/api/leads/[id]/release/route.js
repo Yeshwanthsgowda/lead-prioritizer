@@ -22,21 +22,34 @@ export async function POST(request, context) {
   // params may be a Promise in Next.js 15+; await defensively.
   const { id } = await Promise.resolve(context.params);
 
-  // Only clears ownership when the caller is the current owner,
-  // and the lead belongs to the session's team.
+  // First check if the lead belongs to this caller (UUID or name)
+  const { data: currentLead } = await supabase
+    .from("leads")
+    .select("claimed_by")
+    .eq("id", id)
+    .eq("team_id", session.team_id)
+    .maybeSingle();
+
+  if (!currentLead || (currentLead.claimed_by !== session.sub && currentLead.claimed_by !== session.name)) {
+    return NextResponse.json(
+      { error: "You can only release your own leads." },
+      { status: 403 }
+    );
+  }
+
+  // Clear ownership
   const { data, error } = await supabase
     .from("leads")
     .update({ claimed_by: null, claimed_at: null })
     .eq("id", id)
     .eq("team_id", session.team_id)
-    .eq("claimed_by", session.sub)
     .select()
     .single();
 
   if (error || !data) {
     return NextResponse.json(
-      { error: "You can only release your own leads." },
-      { status: 403 }
+      { error: "Failed to release lead." },
+      { status: 500 }
     );
   }
 
